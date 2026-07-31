@@ -7,11 +7,12 @@ FilePath: /comfyui_copilot/backend/service/mcp-client.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
 import asyncio
+import contextlib
 import traceback
 from typing import Any, Dict, List
 
 from ..service.workflow_rewrite_tools import get_current_workflow
-from ..utils.globals import BACKEND_BASE_URL, DISABLE_WORKFLOW_GEN, get_comfyui_copilot_api_key
+from ..utils.globals import BACKEND_BASE_URL, DISABLE_WORKFLOW_GEN, TENANT_ID, get_comfyui_copilot_api_key
 
 try:
     from agents import HandoffInputData, RunContextWrapper, handoff
@@ -111,114 +112,147 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
         messages = message_memory_optimize(session_id, messages)
         log.info(f"[MCP] Optimized messages count: {len(messages)}, messages: {messages}")
 
-        # Create MCP server instances
-        mcp_server = MCPServerSse(
-            params= {
-                "url": BACKEND_BASE_URL + "/mcp-server/mcp",
-                "timeout": 300.0,
-                "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
-            },
-            cache_tools_list=True,
-            client_session_timeout_seconds=300.0
-        )
+        # --- MCP Server Setup (optional, gracefully skipped if unavailable) ---
+        mcp_server = None
+        bing_server = None
 
-        bing_server = MCPServerSse(
-            params= {
-                "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
-                "timeout": 300.0,
-                "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
-            },
-            cache_tools_list=True,
-            client_session_timeout_seconds=300.0
-        )
-
-        server_list = [mcp_server, bing_server]
-
-        async with mcp_server, bing_server:
-
-            # 创建workflow_rewrite_agent实例 (session_id通过context获取)
-            workflow_rewrite_agent_instance = create_workflow_rewrite_agent()
-
-            class HandoffRewriteData(BaseModel):
-                latest_rewrite_intent: str
-
-            async def on_handoff(ctx: RunContextWrapper[None], input_data: HandoffRewriteData):
-                get_rewrite_context().rewrite_intent = input_data.latest_rewrite_intent
-                log.info(f"Rewrite agent called with intent: {input_data.latest_rewrite_intent}")
-
-            def rewrite_handoff_input_filter(data: HandoffInputData) -> HandoffInputData:
-                """Filter to replace message history with just the rewrite intent"""
-                intent = get_rewrite_context().rewrite_intent
-                log.info(f"Rewrite handoff filter called. Intent: {intent}")
-
-                # Construct a new HandoffInputData with cleared history
-                # We keep new_items (which contains the handoff tool call) so the agent sees the immediate trigger
-                # But we clear input_history to remove the conversation context
-
-                new_history = ()
-                try:
-                    # Attempt to find a user message in history to clone/modify
-                    # This is a best-effort attempt to make the agent see the intent as a user message
-                    for item in data.input_history:
-                        # Check if item looks like a user message (has role='user')
-                        if hasattr(item, 'role') and getattr(item, 'role') == 'user':
-                             # Try to create a copy with new content if it's a Pydantic model
-                             if hasattr(item, 'model_copy'):
-                                 # Pydantic V2
-                                 new_item = item.model_copy(update={"content": intent})
-                                 new_history = (new_item,)
-                                 log.info("Successfully constructed new user message item for handoff (Pydantic V2)")
-                                 break
-                             elif hasattr(item, 'copy'):
-                                 # Pydantic V1
-                                 new_item = item.copy(update={"content": intent})
-                                 new_history = (new_item,)
-                                 log.info("Successfully constructed new user message item for handoff (Pydantic V1)")
-                                 break
-                except Exception as e:
-                    log.warning(f"Failed to construct user message item: {e}")
-
-                # If we couldn't construct a user message, we return empty history.
-                # The agent will still see the handoff tool call in new_items, which contains the intent.
-
-                return HandoffInputData(
-                    input_history=new_history,
-                    pre_handoff_items=(), # Clear pre-handoff items
-                    new_items=tuple(data.new_items), # Keep the handoff tool call
+        if TENANT_ID:
+            # Remote backend is configured — try to connect to MCP servers
+            log.info("[MCP] Remote backend configured, attempting to connect to MCP servers")
+            try:
+                mcp_server = MCPServerSse(
+                    params={
+                        "url": BACKEND_BASE_URL + "/mcp-server/mcp",
+                        "timeout": 300.0,
+                        "headers": {
+                            "X-Session-Id": session_id,
+                            "Authorization": f"Bearer {get_comfyui_copilot_api_key()}",
+                        },
+                    },
+                    cache_tools_list=True,
+                    client_session_timeout_seconds=300.0,
                 )
+                bing_server = MCPServerSse(
+                    params={
+                        "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
+                        "timeout": 300.0,
+                        "headers": {
+                            "X-Session-Id": session_id,
+                            "Authorization": f"Bearer {get_comfyui_copilot_api_key()}",
+                        },
+                    },
+                    cache_tools_list=True,
+                    client_session_timeout_seconds=300.0,
+                )
+                log.info("[MCP] Using remote MCP servers for node search, workflow recall, and Bing search")
+            except Exception as e:
+                log.warning(f"[MCP] Failed to connect to remote MCP servers: {e}. "
+                            "Falling back to local-only mode.")
+                mcp_server = None
+                bing_server = None
+        else:
+            # Local-only mode — no remote MCP servers
+            log.info("[MCP] Running in local-only mode (no TENANT_ID configured). "
+                     "Node search, workflow recall, and Bing search features are unavailable.")
 
-            handoff_rewrite = handoff(
-                agent=workflow_rewrite_agent_instance,
-                input_type=HandoffRewriteData,
-                input_filter=rewrite_handoff_input_filter,
-                on_handoff=on_handoff,
-            )
+        # Build server list for the agent
+        server_list = []
+        if mcp_server is not None:
+            server_list.append(mcp_server)
+        if bing_server is not None:
+            server_list.append(bing_server)
 
-            # Construct instructions based on DISABLE_WORKFLOW_GEN
-            if DISABLE_WORKFLOW_GEN:
-                workflow_creation_instruction = """
-**CASE 3: SEARCH WORKFLOW**
-IF the user wants to find or generate a NEW workflow.
-- Keywords: "create", "generate", "search", "find", "recommend", "生成", "查找", "推荐".
-- Action: Use `recall_workflow`.
-"""
-                workflow_constraint = """
-- [Critical!] When the user's intent is to get workflows or generate images with specific requirements, you MUST call `recall_workflow` tool to find existing similar workflows.
-"""
-            else:
-                workflow_creation_instruction = """
+        # Determine agent instructions based on available tools
+        has_remote_tools = len(server_list) > 0
+
+        if has_remote_tools and not DISABLE_WORKFLOW_GEN:
+            workflow_creation_instruction = """
 **CASE 3: CREATE NEW / SEARCH WORKFLOW**
 IF the user wants to find or generate a NEW workflow from scratch.
 - Keywords: "create", "generate", "search", "find", "recommend", "生成", "查找", "推荐".
 - Action: Use `recall_workflow` AND `gen_workflow`.
 """
-                workflow_constraint = """
+            workflow_constraint = """
 - [Critical!] When the user's intent is to get workflows or generate images with specific requirements, you MUST ALWAYS call BOTH recall_workflow tool AND gen_workflow tool to provide comprehensive workflow options. Never call just one of these tools - both are required for complete workflow assistance. First call recall_workflow to find existing similar workflows, then call gen_workflow to generate new workflow options.
 """
+            bing_instruction = """
+- If you cannot find the information needed to answer a query, consider using bing_search to obtain relevant information. For example, if search_node tool cannot find the node, you can use bing_search to obtain relevant information about those nodes or components.
+- If search_node tool cannot find the node, you MUST use bing_search to obtain relevant information about those nodes or components.
+"""
+        elif has_remote_tools:
+            workflow_creation_instruction = """
+**CASE 3: SEARCH WORKFLOW**
+IF the user wants to find or generate a NEW workflow.
+- Keywords: "create", "generate", "search", "find", "recommend", "生成", "查找", "推荐".
+- Action: Use `recall_workflow`.
+"""
+            workflow_constraint = """
+- [Critical!] When the user's intent is to get workflows or generate images with specific requirements, you MUST call `recall_workflow` tool to find existing similar workflows.
+"""
+            bing_instruction = """
+- If you cannot find the information needed to answer a query, consider using bing_search to obtain relevant information.
+"""
+        else:
+            # Local-only mode — no remote tools available
+            workflow_creation_instruction = """
+**CASE 3: CREATE NEW / SEARCH WORKFLOW**
+IF the user wants to find or generate a NEW workflow from scratch.
+- Action: Explain that workflow search/generation requires a Copilot API key and is currently unavailable.
+  Suggest the user configure their API key or use workflow rewriting to modify an existing workflow.
+"""
+            workflow_constraint = ""
+            bing_instruction = """
+- Note: Node search, workflow search, and web search features are currently unavailable in local-only mode.
+"""
 
-            agent = create_agent(
-                name="ComfyUI-Copilot",
-                instructions=f"""You are a powerful AI assistant for designing image processing workflows, capable of automating problem-solving using tools and commands.
+        # Create workflow rewrite agent
+        workflow_rewrite_agent_instance = create_workflow_rewrite_agent()
+
+        class HandoffRewriteData(BaseModel):
+            latest_rewrite_intent: str
+
+        async def on_handoff(ctx: RunContextWrapper[None], input_data: HandoffRewriteData):
+            get_rewrite_context().rewrite_intent = input_data.latest_rewrite_intent
+            log.info(f"Rewrite agent called with intent: {input_data.latest_rewrite_intent}")
+
+        def rewrite_handoff_input_filter(data: HandoffInputData) -> HandoffInputData:
+            """Filter to replace message history with just the rewrite intent"""
+            intent = get_rewrite_context().rewrite_intent
+            log.info(f"Rewrite handoff filter called. Intent: {intent}")
+
+            new_history = ()
+            try:
+                for item in data.input_history:
+                    if hasattr(item, 'role') and getattr(item, 'role') == 'user':
+                        if hasattr(item, 'model_copy'):
+                            new_item = item.model_copy(update={"content": intent})
+                            new_history = (new_item,)
+                            log.info("Successfully constructed new user message item for handoff (Pydantic V2)")
+                            break
+                        elif hasattr(item, 'copy'):
+                            new_item = item.copy(update={"content": intent})
+                            new_history = (new_item,)
+                            log.info("Successfully constructed new user message item for handoff (Pydantic V1)")
+                            break
+            except Exception as e:
+                log.warning(f"Failed to construct user message item: {e}")
+
+            return HandoffInputData(
+                input_history=new_history,
+                pre_handoff_items=(),
+                new_items=tuple(data.new_items),
+            )
+
+        handoff_rewrite = handoff(
+            agent=workflow_rewrite_agent_instance,
+            input_type=HandoffRewriteData,
+            input_filter=rewrite_handoff_input_filter,
+            on_handoff=on_handoff,
+        )
+
+        agent = create_agent(
+            name="ComfyUI-Copilot",
+            instructions=f"""You are a powerful AI assistant for designing image processing workflows, capable of automating problem-solving using tools and commands.
 
 When handing off to workflow rewrite agent or other agents, this session ID should be used for workflow data management.
 
@@ -273,10 +307,9 @@ You must adhere to the following constraints to complete the task:
 - Ensure that when you call a tool, you have obtained all the input variables for that tool, and do not fabricate any input values for it.
 - Respond with markdown, using a minimum of 3 heading levels (H3, H4, H5...), and when including images use the format ![alt text](url),
 {workflow_constraint}
+{bing_instruction}
 - When the user's intent is to query, return the query result directly without attempting to assist the user in performing operations.
 - When the user's intent is to get prompts for image generation (like Stable Diffusion). Use specific descriptive language with proper weight modifiers (e.g., (word:1.2)), prefer English terms, and separate elements with commas. Include quality terms (high quality, detailed), style specifications (realistic, anime), lighting (cinematic, golden hour), and composition (wide shot, close up) as needed. When appropriate, include negative prompts to exclude unwanted elements. Return words divided by commas directly without any additional text.
-- If you cannot find the information needed to answer a query, consider using bing_search to obtain relevant information. For example, if search_node tool cannot find the node, you can use bing_search to obtain relevant information about those nodes or components.
-- If search_node tool cannot find the node, you MUST use bing_search to obtain relevant information about those nodes or components.
 
 - **ERROR MESSAGE ANALYSIS** - When a user pastes specific error text/logs (containing terms like "Failed", "Error", "Traceback", or stack traces), prioritize providing troubleshooting help rather than invoking search tools. Follow these steps:
   1. Analyze the error to identify the root cause (error type, affected component, missing dependencies, etc.)
@@ -290,23 +323,22 @@ You must adhere to the following constraints to complete the task:
      - Reinstalling dependencies
      - Alternative approaches if the extension is problematic
                 """,
-                mcp_servers=server_list,
-                handoffs=[handoff_rewrite],
-                tools=[get_current_workflow],
-                config=config
-            )
+            mcp_servers=server_list if server_list else None,
+            handoffs=[handoff_rewrite],
+            tools=[get_current_workflow],
+            config=config,
+        )
 
-            # Use messages directly as agent input since they're already in OpenAI format
-            # The caller has already handled image formatting within messages
-            agent_input = messages
-            log.info(f"-- Processing {len(messages)} messages")
+        # Use messages directly as agent input since they're already in OpenAI format
+        agent_input = messages
+        log.info(f"-- Processing {len(messages)} messages")
 
-            from agents import Runner, set_default_openai_api, set_tracing_disabled
-            # from langsmith.wrappers import OpenAIAgentsTracingProcessor
-            set_tracing_disabled(False)
-            set_default_openai_api("chat_completions")
-            # set_trace_processors([OpenAIAgentsTracingProcessor()])
+        from agents import Runner, set_default_openai_api, set_tracing_disabled
+        set_tracing_disabled(False)
+        set_default_openai_api("chat_completions")
 
+        # Enter MCP context managers (no-ops if no servers)
+        async with mcp_server or contextlib.nullcontext(), bing_server or contextlib.nullcontext():
             result = Runner.run_streamed(
                 agent,
                 input=agent_input,
@@ -430,8 +462,6 @@ You must adhere to the following constraints to complete the task:
                                         # Track workflow tools that produced results
                                         if tool_name in ["recall_workflow", "gen_workflow"]:
                                             log.info(f"-- Workflow tool '{tool_name}' produced result with data: {len(data) if data else 0}")
-
-
 
                                 except (json.JSONDecodeError, TypeError) as e:
                                     # If not JSON or parsing fails, treat as regular text
@@ -651,7 +681,6 @@ You must adhere to the following constraints to complete the task:
                 # The agent stream has completed at this point, so finished should be True
                 # The workflow_update_ext will be included in final_ext regardless
                 finished = True
-
 
             # Prepare final ext (debug_ext would be empty here since no debug events)
             final_ext = ext
