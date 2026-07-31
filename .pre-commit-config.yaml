@@ -45,6 +45,15 @@ repos:
         types: [python]
         files: ^backend/
 
+      - id: ty-check
+        name: ty (type check)
+        entry: scripts/pre-commit-ty.sh
+        language: system
+        types: [python]
+        files: ^backend/
+        pass_filenames: false
+        always_run: false
+
   # ---- Frontend (run via npm) ----
   - repo: local
     hooks:

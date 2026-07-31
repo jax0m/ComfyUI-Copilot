@@ -323,7 +323,7 @@ You must adhere to the following constraints to complete the task:
      - Reinstalling dependencies
      - Alternative approaches if the extension is problematic
                 """,
-            mcp_servers=server_list if server_list else None,
+            mcp_servers=server_list if server_list else [],
             handoffs=[handoff_rewrite],
             tools=[get_current_workflow],
             config=config,
