@@ -9,7 +9,7 @@ const useCountDown = (time: number, autoStart = false) => {
     if (!timer.current) {
       setCountDown(ref.current);
       timer.current = setInterval(() => {
-        setCountDown(pre => {
+        setCountDown((pre) => {
           if (pre <= 1) {
             stop();
             return 0;
@@ -18,14 +18,14 @@ const useCountDown = (time: number, autoStart = false) => {
         });
       }, 1000);
     }
-  }
+  };
 
   const stop = () => {
     if (!!timer.current) {
       clearInterval(timer.current);
       timer.current = null;
     }
-  }
+  };
 
   useEffect(() => {
     ref.current = time;
@@ -35,12 +35,12 @@ const useCountDown = (time: number, autoStart = false) => {
 
     return stop;
   }, [time, autoStart]);
-  
+
   return {
     countDown,
     start,
-    stop
+    stop,
   };
-}
+};
 
 export default useCountDown;

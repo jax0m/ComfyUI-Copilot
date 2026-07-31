@@ -1,10 +1,11 @@
-import os
 import json
-from typing import Dict, Any, Optional, List
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, text
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
 
 # 创建数据库基类
 Base = declarative_base()
@@ -12,14 +13,14 @@ Base = declarative_base()
 # 定义workflow_version表模型
 class RewriteExpert(Base):
     __tablename__ = 'rewrite_expert'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)  # 描述
     content = Column(Text, nullable=True)  # 内容
     create_time = Column(DateTime, default=datetime.utcnow)
     update_time = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def to_dict(self):
         def _parse_json_or_raw(value: Optional[str]) -> Any:
             if value is None:
@@ -49,7 +50,7 @@ class RewriteExpert(Base):
 
 class DatabaseManager:
     """数据库管理器"""
-    
+
     def __init__(self, db_path: str = None):
         if db_path is None:
             # 默认数据库路径
@@ -57,7 +58,7 @@ class DatabaseManager:
             db_dir = os.path.join(current_dir, '..', 'data')
             os.makedirs(db_dir, exist_ok=True)
             db_path = os.path.join(db_dir, 'rewrite_expert.db')
-        
+
         self.db_path = db_path
         self.engine = create_engine(f'sqlite:///{db_path}', echo=False)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
@@ -68,11 +69,11 @@ class DatabaseManager:
         self._ensure_schema()
         # 首次初始化时从内置JSON写入默认数据
         self._seed_initial_data()
-        
+
     def get_session(self):
         """获取数据库会话"""
         return self.SessionLocal()
-    
+
     def save_rewrite_expert(self, name: str, description: str, content: str) -> int:
         """新增一条专家记录，返回新ID"""
         session = self.get_session()
@@ -154,7 +155,7 @@ class DatabaseManager:
         except Exception:
             # 读取或导入失败不影响正常启动
             pass
-    
+
     def get_rewrite_expert_by_id(self, expert_id: int) -> Optional[Dict[str, Any]]:
         """根据ID获取专家记录"""
         session = self.get_session()
@@ -172,7 +173,7 @@ class DatabaseManager:
             return [e.to_dict() for e in experts]
         finally:
             session.close()
-    
+
     def list_rewrite_experts_short(self) -> List[Dict[str, Any]]:
         """获取所有专家记录，按ID倒序"""
         session = self.get_session()
@@ -181,7 +182,7 @@ class DatabaseManager:
             return [{"name": e.name, "description": e.description} for e in experts]
         finally:
             session.close()
-    
+
     def get_rewrite_expert_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """根据名称获取专家记录"""
         session = self.get_session()
@@ -190,7 +191,7 @@ class DatabaseManager:
             return expert.to_dict() if expert else None
         finally:
             session.close()
-    
+
     def get_rewrite_expert_by_name_list(self, name_list: List[str]) -> List[Dict[str, Any]]:
         """根据名称列表获取专家记录"""
         session = self.get_session()

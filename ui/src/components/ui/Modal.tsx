@@ -38,14 +38,14 @@ const Modal: React.FC<ModalProps> = ({
     >
       <div
         className={`relative bg-white rounded-lg shadow-lg p-6 min-w-[300px] max-w-full ${className}`}
-        onClick={e => e.stopPropagation()} // 阻止冒泡，点击内容区不关闭
+        onClick={(e) => e.stopPropagation()} // 阻止冒泡，点击内容区不关闭
       >
         <button
           className="absolute top-2 right-4 bg-transparent border-none text-gray-400 hover:text-gray-600"
           onClick={onClose}
           aria-label="Close"
         >
-          <X size={16}/>
+          <X size={16} />
         </button>
         {children}
       </div>

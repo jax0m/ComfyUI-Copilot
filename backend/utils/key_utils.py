@@ -8,6 +8,7 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 '''
 from copy import deepcopy
 
+
 def workflow_config_adapt(config: dict) -> dict:
     """Return a deep-copied and adapted workflow config without mutating input.
 

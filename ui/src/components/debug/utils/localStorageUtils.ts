@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 // Add constant for localStorage key - used to persist interface state between sessions
-export const PARAM_DEBUG_STORAGE_KEY = 'parameter_debug_state';
+export const PARAM_DEBUG_STORAGE_KEY = "parameter_debug_state";
 
 /**
  * Saves parameter debug state to localStorage
@@ -11,7 +11,7 @@ export const saveStateToLocalStorage = (state: any) => {
   try {
     localStorage.setItem(PARAM_DEBUG_STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
-    console.error('Error saving parameter debug state:', error);
+    console.error("Error saving parameter debug state:", error);
   }
 };
 
@@ -25,7 +25,7 @@ export const loadStateFromLocalStorage = () => {
       return JSON.parse(savedState);
     }
   } catch (error) {
-    console.error('Error loading parameter debug state:', error);
+    console.error("Error loading parameter debug state:", error);
   }
   return null;
 };
@@ -37,6 +37,6 @@ export const clearStateFromLocalStorage = () => {
   try {
     localStorage.removeItem(PARAM_DEBUG_STORAGE_KEY);
   } catch (error) {
-    console.error('Error clearing parameter debug state:', error);
+    console.error("Error clearing parameter debug state:", error);
   }
-}; 
+};

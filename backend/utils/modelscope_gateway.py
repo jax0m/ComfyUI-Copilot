@@ -9,11 +9,12 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 import os
 from typing import Any, Dict, List, Optional
 
+import folder_paths
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
 from .logger import log
-import folder_paths
 
 
 class ModelScopeGateway:
@@ -21,7 +22,7 @@ class ModelScopeGateway:
     SUGGEST_ENDPOINT = f"{BASE_URL}/api/v1/dolphin/model/suggestv2"
     SEARCH_ENDPOINT = f"{BASE_URL}/api/v1/dolphin/models"
     SEARCH_SINGLE_ENDPOINT = f"{BASE_URL}/api/v1/models"
-    
+
     def __init__(self, timeout: float = 10.0, retries: int = 3, backoff: float = 0.5):
         self.timeout = timeout
 
@@ -47,9 +48,6 @@ class ModelScopeGateway:
 
     def formatData(self, data: Any) -> Dict[str, Any]:
         inner = data.get('Model', {}) if isinstance(data, dict) else {}
-        path = data.get('Path') or inner.get('Path')
-        name = data.get('Name') or inner.get('Name')
-        revision = data.get('Revision') or inner.get('Revision')
         # size = self.get_model_size(path, name, revision)
         return {
             "Libraries": data.get("Libraries") or inner.get("Libraries"),
@@ -82,7 +80,7 @@ class ModelScopeGateway:
         except Exception as e:
             log.error(f"ModelScope single fetch failed for path={path}: name={name}: {e}")
             return None
-        
+
     def get_model_size(self, path: str, name: str, revision: str, root: str = '') -> int:
         """
         调用单模型详情接口。
@@ -104,9 +102,9 @@ class ModelScopeGateway:
                 return size
             return 0
         except Exception as e:
-            log.error(f"ModelScope model size fetch failed for path={path}: name={name}: rversion={rversion}: {e}")
+            log.error(f"ModelScope model size fetch failed for path={path}: name={name}: revision={revision}: {e}")
             return 0
-    
+
     def suggest(
         self,
         name: str,
@@ -118,7 +116,7 @@ class ModelScopeGateway:
     ) -> Dict[str, Any]:
         """
         调用 suggestv2 模糊搜索接口；返回 body 与当前 Cookie。
-        
+
         Returns:
             Dict[str, Any]: 返回的模型列表，格式为：
             {
@@ -181,7 +179,7 @@ class ModelScopeGateway:
     ) -> Dict[str, Any]:
         """
         调用 models 模糊搜索接口；返回 body 与当前 Cookie。
-        
+
         Returns:
             Dict[str, Any]: 返回的模型列表，格式为：
             {
@@ -262,7 +260,7 @@ class ModelScopeGateway:
 
         local_dir = snapshot_download(model_id, cache_dir=cache_dir)
         return local_dir
-    
+
     def test_modelscope_gateway(self):
         """
         测试 ModelScope Gateway 的基本功能
@@ -271,7 +269,7 @@ class ModelScopeGateway:
             # 测试初始化
             print("Testing ModelScope Gateway initialization...")
             gateway = ModelScopeGateway()
-            
+
             # 测试模糊搜索
             print("Testing suggest method...")
             result = gateway.suggest(
@@ -285,7 +283,7 @@ class ModelScopeGateway:
                     print(f"  - {model.get('Model', {}).get('ModelId', 'Unknown')}")
             else:
                 print("Suggest test failed: no data returned")
-            
+
             # 测试特定模型搜索
             print("Testing specific model search...")
             specific_result = gateway.suggest(
@@ -299,10 +297,10 @@ class ModelScopeGateway:
                 print(f"Specific search test passed: found {len(specific_result['data'])} models")
             else:
                 print("Specific search test failed")
-                
+
             print("All tests completed successfully!")
             return True
-            
+
         except Exception as e:
             print(f"Test failed with error: {e}")
             import traceback
@@ -314,14 +312,14 @@ class ModelScopeGateway:
 if __name__ == "__main__":
     # 创建测试实例
     gateway = ModelScopeGateway()
-    
+
     # 运行测试
     print("=" * 50)
     print("ModelScope Gateway Test Script")
     print("=" * 50)
-    
+
     success = gateway.test_modelscope_gateway()
-    
+
     print("=" * 50)
     if success:
         print("✅ All tests passed!")

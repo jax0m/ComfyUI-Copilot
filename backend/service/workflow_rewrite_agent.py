@@ -6,23 +6,24 @@ LastEditTime: 2025-11-24 20:56:38
 FilePath: /comfyui_copilot/backend/service/workflow_rewrite_agent.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
-from agents.agent import Agent
-from agents.tool import function_tool
 import json
-import time
-import uuid
-import os
-from typing import Dict, Any
 
-from ..utils.key_utils import workflow_config_adapt
-
-from ..dao.expert_table import list_rewrite_experts_short, get_rewrite_expert_by_name_list
+from agents.tool import function_tool
 
 from ..agent_factory import create_agent
+from ..dao.expert_table import get_rewrite_expert_by_name_list, list_rewrite_experts_short
+from ..service.workflow_rewrite_tools import (
+    get_current_workflow,
+    get_node_infos,
+    get_rewrite_context,
+    log,
+    remove_node,
+    search_node_local,
+    update_workflow,
+)
 from ..utils.globals import WORKFLOW_MODEL_NAME, get_language
-from ..utils.request_context import get_config, get_session_id
-
-from ..service.workflow_rewrite_tools import *
+from ..utils.key_utils import workflow_config_adapt
+from ..utils.request_context import get_config
 
 
 @function_tool
@@ -41,9 +42,8 @@ def get_rewrite_export_schema() -> dict:
 
 def create_workflow_rewrite_agent():
     """创建workflow_rewrite_agent实例"""
-    
+
     language = get_language()
-    session_id = get_session_id() or "unknown_session"
     config = get_config()
     config = workflow_config_adapt(config)
 
@@ -62,11 +62,11 @@ def create_workflow_rewrite_agent():
         """.format(language, json.dumps(get_rewrite_export_schema())) + """
 
         你必须先根据用户的需求，从上面的专家经验中选择经验(call get_rewrite_expert_by_name(name_list))，再结合经验内容进行工作流改写，但如果没有任何相关经验，则不参考专家经验。
-        
+
         ## 复杂工作流处理原则
         复杂工作流实际上是多个简单的功能性工作流的组合。例如：文生图→抠图取主体→图生图生成背景。
         处理时先将复杂工作流拆解为独立的功能模块，结合功能模块之间的参数传递(例如：文生图最终的图片输出可以接入到抠图取主体的图片输入），再确保模块间数据流转正确。
-        
+
         ## 操作原则
         - **保持兼容性**：确保修改后的工作流与现有comfyui节点兼容
         - **优化连接**：根据节点之间对应的传参类型和专家经验参考，正确设置节点间的输入输出连接
@@ -84,7 +84,7 @@ def create_workflow_rewrite_agent():
         - **性能考虑**：避免不必要的重复节点，优化工作流执行效率
         - **用户友好**：保持工作流结构清晰，便于用户理解和后续修改
         - **错误处理**：在修改过程中检查潜在的配置错误，提供修正建议
-      
+
         **Tool Usage Guidelines:**
             - get_current_workflow(): Get current workflow from checkpoint or session
             - get_rewrite_expert_by_name(name_list): Get rewrite expert by name list, use before search_node_local.
@@ -97,10 +97,10 @@ def create_workflow_rewrite_agent():
             - remove_node(): Use for incompatible or problematic nodes
             - update_workflow(): Use to save your changes (ALWAYS call this after you have made changes), you MUST pass argument `workflow_data` containing the FULL workflow JSON (as a JSON object or a JSON string). Never call `update_workflow` without `workflow_data`.
 
-      
+
         ## 响应格式
         返回api格式的workflow
-        
+
         # ComfyUI 背景知识（Background Knowledge for ComfyUI）：
         # - ComfyUI 是一个基于节点的图形化工作流系统，广泛用于 AI 图像生成、模型推理等场景。每个节点代表一个操作（如加载模型、生成图像、处理参数等），节点之间通过输入输出端口（socket）进行数据流转。
         # - 节点类型丰富，包括模型加载、图像处理、参数设置、常量输入、类型转换等。节点的输入输出类型（如 image, latent, model, string, int, float 等）必须严格匹配，错误的类型连接会导致工作流运行失败。
@@ -120,4 +120,3 @@ def create_workflow_rewrite_agent():
 
 # 注意：工作流改写代理现在需要在有session context的环境中创建
 # workflow_rewrite_agent = create_workflow_rewrite_agent()  # 不再创建默认实例
-

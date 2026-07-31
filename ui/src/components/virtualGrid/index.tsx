@@ -3,19 +3,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { debounce } from "lodash";
 
 interface IProps {
-  items: any[]
+  items: any[];
   renderItem: (item: any, index: number) => React.ReactNode;
-  minWidth?: number
-  gap?: number
+  minWidth?: number;
+  gap?: number;
 }
 
 const VirtualGrid: React.FC<IProps> = (props) => {
-  const { 
-    items,
-    renderItem,
-    minWidth = 200, 
-    gap = 16
-  } = props;
+  const { items, renderItem, minWidth = 200, gap = 16 } = props;
 
   const parentRef = useRef<any>(null);
 
@@ -24,24 +19,23 @@ const VirtualGrid: React.FC<IProps> = (props) => {
   const [rowCount, setRowCount] = useState<number>(0);
 
   useLayoutEffect(() => {
-    if (!parentRef.current)
-      return;
-    
+    if (!parentRef.current) return;
+
     const updateColumns = () => {
-      if (parentRef.current) {  
+      if (parentRef.current) {
         const width = parentRef.current.offsetWidth;
         const cols = Math.max(1, Math.floor(width / (minWidth + gap / 2)));
         setColumns(cols);
-        setRowCount(Math.ceil(items.length / cols))
+        setRowCount(Math.ceil(items.length / cols));
       }
-    }
+    };
     updateColumns();
 
     const observer = new window.ResizeObserver(debounce(updateColumns, 50));
     observer.observe(parentRef.current);
 
     return () => observer.disconnect();
-  }, [])
+  }, []);
 
   // 虚拟化行
   const rowVirtualizer = useVirtualizer({
@@ -49,13 +43,13 @@ const VirtualGrid: React.FC<IProps> = (props) => {
     getScrollElement: () => parentRef.current,
     estimateSize: () => minWidth + 40, // 估算每行高度
     overscan: 3,
-    gap
+    gap,
   });
 
   return (
     <div
       ref={parentRef}
-      className='h-full relative overflow-auto hide-scrollbar'
+      className="h-full relative overflow-auto hide-scrollbar"
     >
       <div
         style={{
@@ -81,16 +75,18 @@ const VirtualGrid: React.FC<IProps> = (props) => {
                 transform: `translateY(${virtualRow.start}px)`,
                 display: "grid",
                 gridTemplateColumns: `repeat(${columns}, minmax(${minWidth}px, 1fr))`,
-                gap: `${gap}px`
+                gap: `${gap}px`,
               }}
             >
-              {items.slice(start, end).map((item, i) => renderItem(item, start + i))}
+              {items
+                .slice(start, end)
+                .map((item, i) => renderItem(item, start + i))}
             </div>
           );
         })}
       </div>
     </div>
   );
-}
+};
 
-export default VirtualGrid
+export default VirtualGrid;

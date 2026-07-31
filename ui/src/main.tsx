@@ -1,4 +1,3 @@
-
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
@@ -45,15 +44,20 @@ waitForDocumentBody()
 
         ReactDOM.createRoot(container).render(
           <React.StrictMode>
-            <Suspense fallback={<div className="h-full w-full flex items-center justify-center">Loading...</div>}>
+            <Suspense
+              fallback={
+                <div className="h-full w-full flex items-center justify-center">
+                  Loading...
+                </div>
+              }
+            >
               <App />
             </Suspense>
           </React.StrictMode>,
         );
       },
     });
-  })
-  // .then(() => {
-  //   app.extensionManager.setting.set('Comfy.Sidebar.Location', 'left');
-  // })
-  ;
+  });
+// .then(() => {
+//   app.extensionManager.setting.set('Comfy.Sidebar.Location', 'left');
+// })

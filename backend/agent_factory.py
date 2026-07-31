@@ -8,7 +8,7 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 '''
 
 try:
-    from agents import Agent, OpenAIChatCompletionsModel, ModelSettings, Runner, set_tracing_disabled, set_default_openai_api
+    from agents import Agent, ModelSettings, OpenAIChatCompletionsModel, set_default_openai_api, set_tracing_disabled
     if not hasattr(__import__('agents'), 'Agent'):
         raise ImportError
 except Exception:
@@ -21,14 +21,12 @@ except Exception:
         "  python -m pip install -U openai-agents\n\n"
         "Alternatively, keep both by setting COMFYUI_COPILOT_PREFER_OPENAI_AGENTS=1 so this plugin prefers openai-agents."
     )
-from dotenv import dotenv_values
-from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url
-from openai import AsyncOpenAI
-
-
 from agents._config import set_default_openai_api
 from agents.tracing import set_tracing_disabled
-import asyncio
+from openai import AsyncOpenAI
+
+from .utils.globals import LLM_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url
+
 # from .utils.logger import log
 
 # def load_env_config():

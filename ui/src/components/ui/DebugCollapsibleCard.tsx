@@ -18,40 +18,47 @@ interface IProps {
 }
 
 const DebugCollapsibleCard: React.FC<IProps> = (props) => {
-  const { title = '', isWorkflowUpdate = false, className = '', children } = props;
-  
+  const {
+    title = "",
+    isWorkflowUpdate = false,
+    className = "",
+    children,
+  } = props;
+
   const [isOpen, setIsOpen] = useState(false);
-  
+
   return (
-    <BeautifyCard className={`rounded-lg `} borderClassName='rounded-lg'>
-      <div className={`flex flex-col ${className} ${!isOpen ? 'max-h-[200px]' : ''}`}>
+    <BeautifyCard className={`rounded-lg `} borderClassName="rounded-lg">
+      <div
+        className={`flex flex-col ${className} ${!isOpen ? "max-h-[200px]" : ""}`}
+      >
         <div className="flex justify-between items-center pb-2 border-b border-gray-100">
           <div>
-          {
-            typeof title === 'string' ? <h3 className="text-sm text-[#fff] font-medium">{title}</h3> : title
-          }
+            {typeof title === "string" ? (
+              <h3 className="text-sm text-[#fff] font-medium">{title}</h3>
+            ) : (
+              title
+            )}
           </div>
           <button
             onClick={() => {
-              setIsOpen(!isOpen)
+              setIsOpen(!isOpen);
             }}
           >
-            {
-              isOpen ? <ChevronUp className='text-gray-700' /> : <ChevronDown className='text-gray-700' />
-            }
+            {isOpen ? (
+              <ChevronUp className="text-gray-700" />
+            ) : (
+              <ChevronDown className="text-gray-700" />
+            )}
           </button>
         </div>
-        <div className="overflow-hidden flex-1">
-        {
-          children
-        }
-        </div>
+        <div className="overflow-hidden flex-1">{children}</div>
       </div>
       {/* {
         !isOpen && <div className="absolute bottom-0 left-0 right-0 h-12 w-full z-5 bg-debug-collapsible-card-bg pointer-events-none" />
       } */}
     </BeautifyCard>
-  )
-}
+  );
+};
 
 export default DebugCollapsibleCard;

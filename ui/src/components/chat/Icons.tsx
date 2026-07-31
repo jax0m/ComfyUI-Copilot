@@ -8,17 +8,17 @@
  */
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
-export { 
-    Send as SendIcon,
-    X as XIcon,
-    Trash as TrashIcon,
-    Upload as UploadIcon,
-    Image as ImageIcon,
-    Plus as PlusIcon,
-    Settings as CogIcon,
-    StopCircle as StopIcon,
-    History as HistoryIcon,
-    MessageCircleWarning as WarningIcon,
-    CirclePlus as CirclePlusIcon,
-    FilePenLine as FilePenLineIcon
-} from 'lucide-react'; 
+export {
+  Send as SendIcon,
+  X as XIcon,
+  Trash as TrashIcon,
+  Upload as UploadIcon,
+  Image as ImageIcon,
+  Plus as PlusIcon,
+  Settings as CogIcon,
+  StopCircle as StopIcon,
+  History as HistoryIcon,
+  MessageCircleWarning as WarningIcon,
+  CirclePlus as CirclePlusIcon,
+  FilePenLine as FilePenLineIcon,
+} from "lucide-react";

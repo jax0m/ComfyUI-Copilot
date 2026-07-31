@@ -6,23 +6,16 @@ LastEditTime: 2025-12-24 19:03:58
 FilePath: /comfyui_copilot/backend/service/mcp-client.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
-from ..service.workflow_rewrite_tools import get_current_workflow
-from ..utils.globals import BACKEND_BASE_URL, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN
-from .. import core
 import asyncio
-import os
 import traceback
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
+
+from ..service.workflow_rewrite_tools import get_current_workflow
+from ..utils.globals import BACKEND_BASE_URL, DISABLE_WORKFLOW_GEN, get_comfyui_copilot_api_key
 
 try:
-    from agents._config import set_default_openai_api
-    from agents.agent import Agent
-    from agents.items import ItemHelpers
+    from agents import HandoffInputData, RunContextWrapper, handoff
     from agents.mcp import MCPServerSse
-    from agents.run import Runner
-    from agents.tracing import set_tracing_disabled
-    from agents import handoff, RunContextWrapper, HandoffInputData
-    from agents.extensions import handoff_filters
     if not hasattr(__import__('agents'), 'Agent'):
         raise ImportError
 except Exception:
@@ -33,14 +26,15 @@ except Exception:
         "  python -m pip install -U openai-agents"
     )
 
-from ..agent_factory import create_agent
-from ..service.workflow_rewrite_agent import create_workflow_rewrite_agent
-from ..service.message_memory import message_memory_optimize
-from ..utils.request_context import get_rewrite_context, get_session_id, get_config
-from ..utils.logger import log
-from openai.types.responses import ResponseTextDeltaEvent
 from openai import APIError, RateLimitError
+from openai.types.responses import ResponseTextDeltaEvent
 from pydantic import BaseModel
+
+from ..agent_factory import create_agent
+from ..service.message_memory import message_memory_optimize
+from ..service.workflow_rewrite_agent import create_workflow_rewrite_agent
+from ..utils.logger import log
+from ..utils.request_context import get_config, get_rewrite_context, get_session_id
 
 
 class ImageData:
@@ -53,14 +47,14 @@ class ImageData:
 async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[ImageData] = None):
     """
     Invoke the ComfyUI agent with MCP tools and image support.
-    
+
     This function mimics the behavior of the reference facade.py chat function,
     yielding (text, ext) tuples similar to the reference implementation.
-    
+
     Args:
         messages: List of messages in OpenAI format [{"role": "user", "content": "..."}, ...]
         images: List of image data objects (optional)
-        
+
     Yields:
         tuple: (text, ext) where text is accumulated text and ext is structured data
     """
@@ -106,17 +100,17 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
         # Get session_id and config from request context
         session_id = get_session_id()
         config = get_config()
-        
+
         if not session_id:
             raise ValueError("No session_id found in request context")
         if not config:
             raise ValueError("No config found in request context")
-        
+
         # Optimize messages with memory compression
         log.info(f"[MCP] Original messages count: {len(messages)}")
         messages = message_memory_optimize(session_id, messages)
         log.info(f"[MCP] Optimized messages count: {len(messages)}, messages: {messages}")
-        
+
         # Create MCP server instances
         mcp_server = MCPServerSse(
             params= {
@@ -127,7 +121,7 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
             cache_tools_list=True,
             client_session_timeout_seconds=300.0
         )
-        
+
         bing_server = MCPServerSse(
             params= {
                 "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
@@ -137,30 +131,30 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
             cache_tools_list=True,
             client_session_timeout_seconds=300.0
         )
-        
+
         server_list = [mcp_server, bing_server]
-        
+
         async with mcp_server, bing_server:
-            
+
             # 创建workflow_rewrite_agent实例 (session_id通过context获取)
             workflow_rewrite_agent_instance = create_workflow_rewrite_agent()
-            
+
             class HandoffRewriteData(BaseModel):
                 latest_rewrite_intent: str
-            
+
             async def on_handoff(ctx: RunContextWrapper[None], input_data: HandoffRewriteData):
                 get_rewrite_context().rewrite_intent = input_data.latest_rewrite_intent
                 log.info(f"Rewrite agent called with intent: {input_data.latest_rewrite_intent}")
-            
+
             def rewrite_handoff_input_filter(data: HandoffInputData) -> HandoffInputData:
                 """Filter to replace message history with just the rewrite intent"""
                 intent = get_rewrite_context().rewrite_intent
                 log.info(f"Rewrite handoff filter called. Intent: {intent}")
-                
+
                 # Construct a new HandoffInputData with cleared history
                 # We keep new_items (which contains the handoff tool call) so the agent sees the immediate trigger
                 # But we clear input_history to remove the conversation context
-                
+
                 new_history = ()
                 try:
                     # Attempt to find a user message in history to clone/modify
@@ -183,10 +177,10 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
                                  break
                 except Exception as e:
                     log.warning(f"Failed to construct user message item: {e}")
-                
+
                 # If we couldn't construct a user message, we return empty history.
                 # The agent will still see the handoff tool call in new_items, which contains the intent.
-                
+
                 return HandoffInputData(
                     input_history=new_history,
                     pre_handoff_items=(), # Clear pre-handoff items
@@ -199,7 +193,7 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
                 input_filter=rewrite_handoff_input_filter,
                 on_handoff=on_handoff,
             )
-            
+
             # Construct instructions based on DISABLE_WORKFLOW_GEN
             if DISABLE_WORKFLOW_GEN:
                 workflow_creation_instruction = """
@@ -307,7 +301,7 @@ You must adhere to the following constraints to complete the task:
             agent_input = messages
             log.info(f"-- Processing {len(messages)} messages")
 
-            from agents import Agent, Runner, set_trace_processors, set_tracing_disabled, set_default_openai_api
+            from agents import Runner, set_default_openai_api, set_tracing_disabled
             # from langsmith.wrappers import OpenAIAgentsTracingProcessor
             set_tracing_disabled(False)
             set_default_openai_api("chat_completions")
@@ -319,7 +313,7 @@ You must adhere to the following constraints to complete the task:
                 max_turns=30,
             )
             log.info("=== MCP Agent Run starting ===")
-            
+
             # Variables to track response state similar to reference facade.py
             current_text = ''
             ext = None
@@ -327,20 +321,19 @@ You must adhere to the following constraints to complete the task:
             workflow_tools_called = set()  # Track called workflow tools
             last_yield_length = 0
             tool_call_queue = []  # Queue to track tool calls in order
-            current_tool_call = None  # Track current tool being called
             # Collect workflow update ext data from tools and message outputs
             workflow_update_ext = None
             # Track if we've seen any handoffs to avoid showing initial handoff
             handoff_occurred = False
-            
+
             # Enhanced retry mechanism for OpenAI streaming errors
             max_retries = 3
             retry_count = 0
-            
+
             async def process_stream_events(stream_result):
                 """Process stream events with enhanced error handling"""
                 nonlocal current_text, last_yield_length, tool_call_queue, workflow_update_ext, tool_results, workflow_tools_called, handoff_occurred
-                
+
                 try:
                     async for event in stream_result.stream_events():
                         # Handle different event types similar to reference implementation
@@ -355,11 +348,11 @@ You must adhere to the following constraints to complete the task:
                                     last_yield_length = len(current_text)
                                     yield (current_text, None)
                             continue
-                            
+
                         elif event.type == "agent_updated_stream_event":
                             new_agent_name = event.new_agent.name
                             log.info(f"Handoff to: {new_agent_name}")
-                            
+
                             # Only show handoff message if we've already seen handoffs
                             # This prevents showing the initial handoff to ComfyUI-Copilot
                             if handoff_occurred:
@@ -367,14 +360,14 @@ You must adhere to the following constraints to complete the task:
                                 handoff_text = f"\n▸ **Switching to {new_agent_name}**\n\n"
                                 current_text += handoff_text
                                 last_yield_length = len(current_text)
-                                
+
                                 # Yield text update only
                                 yield (current_text, None)
-                            
+
                             # Mark that we've seen a handoff
                             handoff_occurred = True
                             continue
-                            
+
                         elif event.type == "run_item_stream_event":
                             if event.item.type == "tool_call_item":
                                 # Get tool name correctly using raw_item.name
@@ -382,7 +375,7 @@ You must adhere to the following constraints to complete the task:
                                 # Add to queue instead of overwriting current_tool_call
                                 tool_call_queue.append(tool_name)
                                 log.info(f"-- Tool '{tool_name}' was called")
-                                
+
                                 # Track workflow tools being called
                                 if tool_name in ["recall_workflow", "gen_workflow"]:
                                     workflow_tools_called.add(tool_name)
@@ -390,15 +383,15 @@ You must adhere to the following constraints to complete the task:
                                 log.info(f"-- Tool output: {event.item.output}")
                                 # Store tool output for potential ext data processing
                                 tool_output_data_str = str(event.item.output)
-                                
+
                                 # Get the next tool from the queue (FIFO)
                                 if tool_call_queue:
                                     tool_name = tool_call_queue.pop(0)
                                     log.info(f"-- Associating output with tool '{tool_name}'")
                                 else:
                                     tool_name = 'unknown_tool'
-                                    log.info(f"-- Warning: No tool call in queue for output")
-                                
+                                    log.info("-- Warning: No tool call in queue for output")
+
                                 try:
                                     import json
                                     tool_output_data = json.loads(tool_output_data_str)
@@ -410,10 +403,10 @@ You must adhere to the following constraints to complete the task:
                                                 workflow_update_ext = tool_ext_items  # Store all ext items, not just one
                                                 log.info(f"-- Captured workflow tool ext from tool output: {len(tool_ext_items)} items")
                                                 break
-                                        
+
                                     if "text" in tool_output_data and tool_output_data.get('text'):
                                         parsed_output = json.loads(tool_output_data['text'])
-                                        
+
                                         # Handle case where parsed_output might be a list instead of dict
                                         if isinstance(parsed_output, dict):
                                             answer = parsed_output.get("answer")
@@ -424,7 +417,7 @@ You must adhere to the following constraints to complete the task:
                                             answer = None
                                             data = parsed_output if isinstance(parsed_output, list) else None
                                             tool_ext = None
-                                        
+
                                         # Store tool results similar to reference facade.py
                                         tool_results[tool_name] = {
                                             "answer": answer,
@@ -433,13 +426,13 @@ You must adhere to the following constraints to complete the task:
                                             "content_dict": parsed_output
                                         }
                                         log.info(f"-- Stored result for tool '{tool_name}': data={len(data) if data else 0}, ext={tool_ext}")
-                                        
+
                                         # Track workflow tools that produced results
                                         if tool_name in ["recall_workflow", "gen_workflow"]:
                                             log.info(f"-- Workflow tool '{tool_name}' produced result with data: {len(data) if data else 0}")
-                                        
-                                        
-                                        
+
+
+
                                 except (json.JSONDecodeError, TypeError) as e:
                                     # If not JSON or parsing fails, treat as regular text
                                     log.error(f"-- Failed to parse tool output as JSON: {e}")
@@ -450,17 +443,17 @@ You must adhere to the following constraints to complete the task:
                                         "ext": None,
                                         "content_dict": None
                                     }
-                                
+
                             elif event.item.type == "message_output_item":
                                 pass
                             else:
                                 pass  # Ignore other event types
-                                
+
                 except Exception as e:
                     log.error(f"Unexpected streaming error: {e}")
                     log.error(f"Traceback: {traceback.format_exc()}")
                     raise e
-            
+
             # Implement retry mechanism with exponential backoff
             while retry_count <= max_retries:
                 try:
@@ -469,11 +462,11 @@ You must adhere to the following constraints to complete the task:
                             yield stream_data
                     # If we get here, streaming completed successfully
                     break
-                    
+
                 except (AttributeError, TypeError, ConnectionError, OSError, APIError) as stream_error:
                     retry_count += 1
                     error_msg = str(stream_error)
-                    
+
                     # Check for specific streaming errors that are worth retrying
                     should_retry = (
                         "'NoneType' object has no attribute 'strip'" in error_msg or
@@ -482,18 +475,18 @@ You must adhere to the following constraints to complete the task:
                         "socket hang up" in error_msg or
                         "Connection reset" in error_msg
                     )
-                    
+
                     if should_retry and retry_count <= max_retries:
                         wait_time = min(2 ** (retry_count - 1), 10)  # Exponential backoff, max 10 seconds
                         log.error(f"Stream error (attempt {retry_count}/{max_retries}): {error_msg}")
                         log.info(f"Retrying in {wait_time} seconds...")
-                        
+
                         # Yield current progress before retry
                         if current_text:
                             yield (current_text, None)
-                        
+
                         await asyncio.sleep(wait_time)
-                        
+
                         try:
                             # Create a new result object for retry
                             result = Runner.run_streamed(
@@ -519,12 +512,12 @@ You must adhere to the following constraints to complete the task:
                         else:
                             # Continue to normal processing, error will be handled by outer try-catch
                             break
-                        
+
                 except Exception as unexpected_error:
                     retry_count += 1
                     log.error(f"Unexpected error during streaming (attempt {retry_count}/{max_retries}): {unexpected_error}")
                     log.error(f"Traceback: {traceback.format_exc()}")
-                    
+
                     if retry_count > max_retries:
                         log.error("Max retries exceeded for unexpected error")
                         break
@@ -544,7 +537,7 @@ You must adhere to the following constraints to complete the task:
                 if result['ext']:
                     log.info(f"  - Ext types: {[item.get('type') for item in (result['ext'] if isinstance(result['ext'], list) else [result['ext']])]}")
                 log.info(f"  - Answer preview: {result['answer'][:100] if result['answer'] else 'None'}...")
-            log.info(f"=== End Tool Results Summary ===\n")
+            log.info("=== End Tool Results Summary ===\n")
 
             # Process workflow tools results integration similar to reference facade.py
             workflow_tools_found = [tool for tool in ["recall_workflow", "gen_workflow"] if tool in tool_results]
@@ -552,11 +545,11 @@ You must adhere to the following constraints to complete the task:
 
             if workflow_tools_found:
                 log.info(f"Workflow tools called: {workflow_tools_found}")
-                
+
                 # Check if both workflow tools were called
                 if "recall_workflow" in tool_results and "gen_workflow" in tool_results:
                     log.info("Both recall_workflow and gen_workflow were called, merging results")
-                    
+
                     # Check each tool's success and merge results
                     successful_workflows = []
 
@@ -605,10 +598,10 @@ You must adhere to the following constraints to complete the task:
                     else:
                         ext = None
                         log.error("No successful workflow data to return")
-                    
+
                     # Both tools called, finished = True
                     finished = True
-                        
+
                 elif "recall_workflow" in tool_results and "gen_workflow" not in tool_results:
                     if DISABLE_WORKFLOW_GEN:
                         # If generation is disabled, we don't wait for gen_workflow
@@ -629,7 +622,7 @@ You must adhere to the following constraints to complete the task:
                         log.info("Only recall_workflow was called, waiting for gen_workflow, not returning ext")
                         ext = None
                         finished = False  # This is the key: keep finished=false to wait for gen_workflow
-                    
+
                 elif "gen_workflow" in tool_results and "recall_workflow" not in tool_results:
                     # Only gen_workflow was called, return its result normally
                     log.info("Only gen_workflow was called, returning its result")
@@ -643,7 +636,7 @@ You must adhere to the following constraints to complete the task:
                     else:
                         ext = None
                         log.error("gen_workflow failed or returned no data")
-                    
+
                     # Only gen_workflow called, finished = True
                     finished = True
             else:
@@ -653,13 +646,13 @@ You must adhere to the following constraints to complete the task:
                         ext = result["ext"]
                         log.info(f"Using ext from {tool_name}")
                         break
-                
+
                 # When no workflow tools are called (e.g., handoff to workflow_rewrite_agent)
                 # The agent stream has completed at this point, so finished should be True
                 # The workflow_update_ext will be included in final_ext regardless
                 finished = True
-            
-            
+
+
             # Prepare final ext (debug_ext would be empty here since no debug events)
             final_ext = ext
             if workflow_update_ext:
@@ -670,7 +663,7 @@ You must adhere to the following constraints to complete the task:
                     # Backward compatibility: if it's a single item, wrap it
                     final_ext = [workflow_update_ext] + (ext if ext else [])
                 log.info(f"-- Including workflow_update ext in final response: {len(workflow_update_ext) if isinstance(workflow_update_ext, list) else 1} items")
-            
+
             # Final yield with complete text, ext data, and finished status
             # Return as tuple (text, ext_with_finished) where ext_with_finished includes finished info
             if final_ext:
@@ -684,14 +677,14 @@ You must adhere to the following constraints to complete the task:
                     "data": None,
                     "finished": finished
                 }
-            
+
             yield (current_text, ext_with_finished)
-            
+
     except Exception as e:
         log.error(f"Error in comfyui_agent_invoke: {str(e)}")
         log.error(f"Traceback: {traceback.format_exc()}")
         error_message = f"I apologize, but an error occurred while processing your request: {str(e)}"
-        
+
         # Check if this is a retryable streaming error that should not finish the conversation
         error_msg = str(e)
         is_retryable_streaming_error = (
@@ -702,10 +695,10 @@ You must adhere to the following constraints to complete the task:
             "Connection reset" in error_msg or
             isinstance(e, APIError)
         )
-        
+
         if is_retryable_streaming_error:
             # For retryable streaming errors, don't finish - allow user to retry
-            log.info(f"Detected retryable streaming error, setting finished=False to allow retry")
+            log.info("Detected retryable streaming error, setting finished=False to allow retry")
             error_ext = {
                 "data": None,
                 "finished": False
@@ -717,5 +710,5 @@ You must adhere to the following constraints to complete the task:
                 "data": None,
                 "finished": True
             }
-        
+
         yield (error_message, error_ext)

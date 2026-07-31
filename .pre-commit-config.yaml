@@ -1,0 +1,65 @@
+# Pre-commit hooks for ComfyUI-Copilot
+# https://pre-commit.com
+#
+# Install:  pip install pre-commit
+# Enable:   pre-commit install
+# Run:      pre-commit run --all-files
+#
+# Note: The ESLint and Prettier hooks require `cd ui && npm install` first.
+#       They will print a SKIP message if node_modules is not present.
+
+repos:
+  # ---- Python ----
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Basic file hygiene
+      - id: trailing-whitespace
+        files: \.py$
+      - id: end-of-file-fixer
+        files: \.py$
+      - id: check-yaml
+      - id: check-json
+        files: (pyproject\.toml|\.github/.*\.json)$
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=5120']
+      - id: check-case-conflict
+      - id: detect-private-key
+        exclude: ^dist/
+
+  # Use local ruff installation to avoid version mismatches
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff (lint)
+        entry: .venv/bin/ruff check --select E9,F,I
+        language: system
+        types: [python]
+        files: ^backend/
+
+      - id: ruff-sort
+        name: ruff (import sorting)
+        entry: .venv/bin/ruff check --select I --fix
+        language: system
+        types: [python]
+        files: ^backend/
+
+  # ---- Frontend (run via npm) ----
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint (TypeScript + React)
+        entry: scripts/pre-commit-eslint.sh
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^ui/src/
+
+      - id: prettier
+        name: Prettier
+        entry: scripts/pre-commit-prettier.sh
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^ui/src/

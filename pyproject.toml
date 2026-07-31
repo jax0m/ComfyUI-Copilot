@@ -12,3 +12,13 @@ Repository = "https://github.com/AIDC-AI/ComfyUI-Copilot"
 PublisherId = "yx9966"
 DisplayName = "ComfyUI-Copilot"
 Icon = ""
+
+# ---- Ruff (Python linting) ----
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["backend"]
+
+[tool.ruff.lint]
+# Enforce: E9 (syntax errors), F (pyflakes), I (import sorting)
+select = ["E9", "F", "I"]

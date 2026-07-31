@@ -5,12 +5,7 @@
 export type Vector2 = [number, number];
 export type Vector4 = [number, number, number, number];
 export type widgetTypes =
-  | "number"
-  | "slider"
-  | "combo"
-  | "text"
-  | "toggle"
-  | "button";
+  "number" | "slider" | "combo" | "text" | "toggle" | "button";
 export type SlotShape =
   | typeof LiteGraph.BOX_SHAPE
   | typeof LiteGraph.CIRCLE_SHAPE
@@ -81,24 +76,27 @@ export interface IWidget<TValue = any, TOptions = any> {
 export interface IButtonWidget extends IWidget<null, {}> {
   type: "button";
 }
-export interface IToggleWidget
-  extends IWidget<boolean, { on?: string; off?: string }> {
+export interface IToggleWidget extends IWidget<
+  boolean,
+  { on?: string; off?: string }
+> {
   type: "toggle";
 }
-export interface ISliderWidget
-  extends IWidget<number, { max: number; min: number }> {
+export interface ISliderWidget extends IWidget<
+  number,
+  { max: number; min: number }
+> {
   type: "slider";
 }
 export interface INumberWidget extends IWidget<number, { precision: number }> {
   type: "number";
 }
-export interface IComboWidget
-  extends IWidget<
-    string[],
-    {
-      values: string[] | ((widget: IComboWidget, node: LGraphNode) => string[]);
-    }
-  > {
+export interface IComboWidget extends IWidget<
+  string[],
+  {
+    values: string[] | ((widget: IComboWidget, node: LGraphNode) => string[]);
+  }
+> {
   type: "combo";
 }
 
@@ -374,8 +372,7 @@ export declare class LGraph {
   private _nodes_by_id: Record<number, LGraphNode>;
   /** nodes that are executable sorted in execution order */
   private _nodes_executable:
-    | (LGraphNode & { onExecute: NonNullable<LGraphNode["onExecute"]> }[])
-    | null;
+    (LGraphNode & { onExecute: NonNullable<LGraphNode["onExecute"]> }[]) | null;
   /** nodes that contain onExecute */
   private _nodes_in_order: LGraphNode[];
   private _version: number;
@@ -1200,19 +1197,16 @@ export declare class LGraphCanvas {
   node_widget: [LGraphNode, IWidget] | null;
   /** Called by `LGraphCanvas.drawBackCanvas` */
   onDrawBackground:
-    | ((ctx: CanvasRenderingContext2D, visibleArea: Vector4) => void)
-    | null;
+    ((ctx: CanvasRenderingContext2D, visibleArea: Vector4) => void) | null;
   /** Called by `LGraphCanvas.drawFrontCanvas` */
   onDrawForeground:
-    | ((ctx: CanvasRenderingContext2D, visibleArea: Vector4) => void)
-    | null;
+    ((ctx: CanvasRenderingContext2D, visibleArea: Vector4) => void) | null;
   onDrawOverlay: ((ctx: CanvasRenderingContext2D) => void) | null;
   /** Called by `LGraphCanvas.processMouseDown` */
   onMouse: ((event: MouseEvent) => boolean) | null;
   /** Called by `LGraphCanvas.drawFrontCanvas` and `LGraphCanvas.drawLinkTooltip` */
   onDrawLinkTooltip:
-    | ((ctx: CanvasRenderingContext2D, link: LLink, _this: this) => void)
-    | null;
+    ((ctx: CanvasRenderingContext2D, link: LLink, _this: this) => void) | null;
   /** Called by `LGraphCanvas.selectNodes` */
   onNodeMoved: ((node: LGraphNode) => void) | null;
   /** Called by `LGraphCanvas.processNodeSelected` */

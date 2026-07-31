@@ -1,11 +1,11 @@
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
-import { GeneratedImage } from '../types/parameterDebugTypes';
-import { generateUUID } from '../../../utils/uuid';
+import { GeneratedImage } from "../types/parameterDebugTypes";
+import { generateUUID } from "../../../utils/uuid";
 
 // Constants
-export const PARAM_DEBUG_HISTORY_KEY = 'parameter_debug_history';
+export const PARAM_DEBUG_HISTORY_KEY = "parameter_debug_history";
 export const MAX_HISTORY_ITEMS = 30;
 
 // Interface for history item
@@ -14,7 +14,7 @@ export interface HistoryItem {
   timestamp: number;
   title: string;
   nodeName: string;
-  params: {[key: string]: any};
+  params: { [key: string]: any };
   generatedImages: GeneratedImage[];
   totalCount: number;
   workflow?: any; // Optional workflow data
@@ -25,15 +25,15 @@ export interface HistoryItem {
  */
 export const saveHistoryItem = async (
   nodeName: string,
-  params: {[key: string]: any},
+  params: { [key: string]: any },
   generatedImages: GeneratedImage[],
   totalCount: number,
-  workflow?: any
+  workflow?: any,
 ) => {
   try {
     // Get existing history
     const history = loadHistoryItems();
-    
+
     // Create new history item
     const newItem: HistoryItem = {
       id: generateUUID(),
@@ -42,30 +42,30 @@ export const saveHistoryItem = async (
       nodeName,
       params: {
         ...params,
-        nodeNames: { 
+        nodeNames: {
           ...(params.nodeNames || {}),
-          [nodeName.split('<')[0]]: nodeName.split('<')[0]
-        }
+          [nodeName.split("<")[0]]: nodeName.split("<")[0],
+        },
       },
       generatedImages,
       totalCount,
-      workflow
+      workflow,
     };
-    
+
     // Add new item to the beginning of the array (newest first)
     history.unshift(newItem);
-    
+
     // Keep only the most recent MAX_HISTORY_ITEMS
     if (history.length > MAX_HISTORY_ITEMS) {
       history.splice(MAX_HISTORY_ITEMS);
     }
-    
+
     // Save back to localStorage
     localStorage.setItem(PARAM_DEBUG_HISTORY_KEY, JSON.stringify(history));
-    
+
     return newItem;
   } catch (error) {
-    console.error('Error saving parameter debug history:', error);
+    console.error("Error saving parameter debug history:", error);
     return null;
   }
 };
@@ -80,7 +80,7 @@ export const loadHistoryItems = (): HistoryItem[] => {
       return JSON.parse(savedHistory);
     }
   } catch (error) {
-    console.error('Error loading parameter debug history:', error);
+    console.error("Error loading parameter debug history:", error);
   }
   return [];
 };
@@ -91,9 +91,9 @@ export const loadHistoryItems = (): HistoryItem[] => {
 export const getHistoryItemById = (id: string): HistoryItem | null => {
   try {
     const history = loadHistoryItems();
-    return history.find(item => item.id === id) || null;
+    return history.find((item) => item.id === id) || null;
   } catch (error) {
-    console.error('Error getting history item:', error);
+    console.error("Error getting history item:", error);
     return null;
   }
 };
@@ -105,7 +105,7 @@ export const clearHistory = () => {
   try {
     localStorage.removeItem(PARAM_DEBUG_HISTORY_KEY);
   } catch (error) {
-    console.error('Error clearing parameter debug history:', error);
+    console.error("Error clearing parameter debug history:", error);
   }
 };
 
@@ -114,7 +114,7 @@ export const clearHistory = () => {
  */
 export const formatDate = (timestamp: number): string => {
   const date = new Date(timestamp);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 };
 
 /**
@@ -122,12 +122,12 @@ export const formatDate = (timestamp: number): string => {
  */
 export const formatNodeNameWithParams = (
   nodeName: string,
-  params: {[key: string]: any}
+  params: { [key: string]: any },
 ): string => {
   // Check if we have nodeParams structure which contains node-to-params mapping
   if (params.nodeParams) {
     const nodeParamsEntries = Object.entries(params.nodeParams);
-    
+
     // Format each node with its parameters
     const nodeStrings = nodeParamsEntries.map(([nodeId, nodeParams]) => {
       // Get node name from selectedNodeInfoMap if available
@@ -135,22 +135,24 @@ export const formatNodeNameWithParams = (
       if (params.selectedNodeInfoMap && params.selectedNodeInfoMap[nodeId]) {
         displayNodeName = params.selectedNodeInfoMap[nodeId];
       }
-      
+
       // Get parameter names for this node (up to 3)
       const paramNames = Object.keys(nodeParams as object).slice(0, 3);
-      
+
       // Format as node_name<param1,param2,param3>
-      return `${displayNodeName}<${paramNames.join(',')}>`;
+      return `${displayNodeName}<${paramNames.join(",")}>`;
     });
-    
+
     // Join all nodes with semicolons
-    return nodeStrings.join(';');
+    return nodeStrings.join(";");
   }
-  
+
   // Fallback to basic format if nodeParams not available
   // Get up to 3 parameter names (not values)
-  const paramKeys = Object.keys(params).filter(key => key !== 'nodeParams' && key !== 'selectedNodeInfoMap').slice(0, 3);
-  
+  const paramKeys = Object.keys(params)
+    .filter((key) => key !== "nodeParams" && key !== "selectedNodeInfoMap")
+    .slice(0, 3);
+
   // Format as node_name<param1,param2,param3>
-  return `${nodeName}<${paramKeys.join(',')}>`;
-}; 
+  return `${nodeName}<${paramKeys.join(",")}>`;
+};

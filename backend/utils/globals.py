@@ -13,8 +13,9 @@ Global utilities for managing application-wide state and configuration.
 
 import os
 import threading
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, Optional
+
 from dotenv import load_dotenv
 
 # Load .env file if it exists
@@ -24,36 +25,36 @@ if env_path.exists():
 
 class GlobalState:
     """Thread-safe global state manager for application-wide configuration."""
-    
+
     def __init__(self):
         self._lock = threading.RLock()
         self._state: Dict[str, Any] = {
             'LANGUAGE': 'en',  # Default language
         }
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get a global state value."""
         with self._lock:
             return self._state.get(key, default)
-    
+
     def set(self, key: str, value: Any) -> None:
         """Set a global state value."""
         with self._lock:
             self._state[key] = value
-    
+
     def get_language(self) -> str:
         """Get the current language setting."""
         return self.get('LANGUAGE', 'en')
-    
+
     def set_language(self, language: str) -> None:
         """Set the current language setting."""
         self.set('LANGUAGE', language)
-    
+
     def update(self, **kwargs) -> None:
         """Update multiple state values at once."""
         with self._lock:
             self._state.update(kwargs)
-    
+
     def get_all(self) -> Dict[str, Any]:
         """Get a copy of all global state."""
         with self._lock:

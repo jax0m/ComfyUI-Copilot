@@ -8,16 +8,14 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 '''
 
 import json
-from typing import Dict, Any, Optional
-import asyncio
-from pydantic import BaseModel
-from ..utils.key_utils import workflow_config_adapt
-from openai import OpenAI
 
-from ..agent_factory import create_agent
-from ..utils.globals import WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key, LLM_DEFAULT_BASE_URL
-from ..utils.request_context import get_config, get_rewrite_context, RewriteContext
+from openai import OpenAI
+from pydantic import BaseModel
+
+from ..utils.globals import LLM_DEFAULT_BASE_URL, WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key
+from ..utils.key_utils import workflow_config_adapt
 from ..utils.logger import log
+from ..utils.request_context import RewriteContext, get_config
 
 
 class RewriteResponse(BaseModel):
@@ -29,10 +27,10 @@ class RewriteResponse(BaseModel):
 def rewrite_workflow_simple(rewrite_context: RewriteContext) -> str:
     """
     使用简化的方式重写工作流，直接调用OpenAI API
-    
+
     Args:
         rewrite_context: 包含所有重写所需信息的上下文
-        
+
     Returns:
         改写后的API工作流(JSON字符串)
     """
@@ -108,11 +106,11 @@ ComfyUI API格式工作流是一个JSON对象，其中：
 
         # 解析返回的JSON
         # result = json.loads(result_text)
-        
+
         # 验证返回格式
         if result.workflow_data is None:
             return "{}"
-        
+
         # 验证workflow_data是有效的JSON字符串
         if isinstance(result.workflow_data, str):
             # 尝试解析以验证有效性

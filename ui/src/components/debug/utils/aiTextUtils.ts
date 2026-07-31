@@ -1,8 +1,8 @@
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
-import { WorkflowChatAPI } from '../../../apis/workflowChatApi';
-import { StateKey } from '../ParameterDebugInterfaceNew';
+import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
+import { StateKey } from "../ParameterDebugInterfaceNew";
 
 /**
  * 处理AI文本生成
@@ -13,36 +13,39 @@ export const handleAiWriting = async (
   setAiWritingLoading: React.Dispatch<React.SetStateAction<boolean>>,
   setAiWritingError: React.Dispatch<React.SetStateAction<string | null>>,
   setAiGeneratedTexts: React.Dispatch<React.SetStateAction<string[]>>,
-  setAiSelectedTexts: React.Dispatch<React.SetStateAction<{[key: string]: boolean}>>
+  setAiSelectedTexts: React.Dispatch<
+    React.SetStateAction<{ [key: string]: boolean }>
+  >,
 ) => {
   if (!aiWritingModalText.trim()) {
     setAiWritingError("Please enter some text to generate variations");
     return;
   }
-  
+
   setAiWritingLoading(true);
   setAiWritingError(null);
   setAiGeneratedTexts([]);
   setAiSelectedTexts({});
-  
+
   try {
-    const generatedTexts = await WorkflowChatAPI.generateSDPrompts(aiWritingModalText);
+    const generatedTexts =
+      await WorkflowChatAPI.generateSDPrompts(aiWritingModalText);
     setAiGeneratedTexts(generatedTexts);
     // Send tracking event
     WorkflowChatAPI.trackEvent({
-      event_type: 'prompt_generate',
-      message_type: 'parameter_debug',
+      event_type: "prompt_generate",
+      message_type: "parameter_debug",
       message_id: task_id,
       data: {
         input_text: aiWritingModalText,
-        generated_texts: generatedTexts
-      }
+        generated_texts: generatedTexts,
+      },
     });
-    
+
     // Pre-select all generated texts
-    const newSelectedTexts: {[key: string]: boolean} = {};
+    const newSelectedTexts: { [key: string]: boolean } = {};
     generatedTexts.forEach((text, index) => {
-      newSelectedTexts[`text${index+1}`] = false;
+      newSelectedTexts[`text${index + 1}`] = false;
     });
     setAiSelectedTexts(newSelectedTexts);
   } catch (error) {
@@ -58,11 +61,13 @@ export const handleAiWriting = async (
  */
 export const toggleTextSelection = (
   textKey: string,
-  setAiSelectedTexts: React.Dispatch<React.SetStateAction<{[key: string]: boolean}>>
+  setAiSelectedTexts: React.Dispatch<
+    React.SetStateAction<{ [key: string]: boolean }>
+  >,
 ) => {
-  setAiSelectedTexts(prev => ({
+  setAiSelectedTexts((prev) => ({
     ...prev,
-    [textKey]: !prev[textKey]
+    [textKey]: !prev[textKey],
   }));
 };
 
@@ -72,49 +77,53 @@ export const toggleTextSelection = (
 export const addSelectedTexts = (
   aiWritingNodeId: string,
   aiWritingParamName: string,
-  aiSelectedTexts: {[key: string]: boolean},
+  aiSelectedTexts: { [key: string]: boolean },
   aiGeneratedTexts: string[],
   aiWritingModalText: string,
   task_id: string,
-  textInputs: {[nodeId_paramName: string]: string[]},
+  textInputs: { [nodeId_paramName: string]: string[] },
   updateState: (key: StateKey, value: any) => void,
-  updateParamTestValues: (nodeId: string, paramName: string, values: any[]) => void,
-  setAiWritingModalVisible: React.Dispatch<React.SetStateAction<boolean>>
+  updateParamTestValues: (
+    nodeId: string,
+    paramName: string,
+    values: any[],
+  ) => void,
+  setAiWritingModalVisible: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
   const textKey = `${aiWritingNodeId}_${aiWritingParamName}`;
   const selectedTexts = Object.entries(aiSelectedTexts)
     .filter(([_, isSelected]) => isSelected)
     .map(([key]) => {
-      const index = parseInt(key.replace('text', '')) - 1;
+      const index = parseInt(key.replace("text", "")) - 1;
       return aiGeneratedTexts[index];
     });
-  
+
   if (selectedTexts.length === 0) {
     return;
   }
-  
+
   const currentTexts = [...(textInputs[textKey] || [])];
   updateState(StateKey.TextInputs, {
     ...textInputs,
-    [textKey]: [...currentTexts, ...selectedTexts]
-  })
+    [textKey]: [...currentTexts, ...selectedTexts],
+  });
 
   // Send tracking event
   WorkflowChatAPI.trackEvent({
-    event_type: 'prompt_apply',
-    message_type: 'parameter_debug',
+    event_type: "prompt_apply",
+    message_type: "parameter_debug",
     message_id: task_id,
     data: {
       input_text: aiWritingModalText,
       generated_texts: aiGeneratedTexts,
-      selected_texts: selectedTexts
-    }
+      selected_texts: selectedTexts,
+    },
   });
-  
+
   // Also update paramTestValues
   const updatedTexts = [...(textInputs[textKey] || []), ...selectedTexts];
   updateParamTestValues(aiWritingNodeId, aiWritingParamName, updatedTexts);
-  
+
   // Close the modal
   setAiWritingModalVisible(false);
 };
@@ -130,16 +139,18 @@ export const openAiWritingModal = (
   setAiWritingParamName: React.Dispatch<React.SetStateAction<string>>,
   setAiWritingModalText: React.Dispatch<React.SetStateAction<string>>,
   setAiGeneratedTexts: React.Dispatch<React.SetStateAction<string[]>>,
-  setAiSelectedTexts: React.Dispatch<React.SetStateAction<{[key: string]: boolean}>>,
+  setAiSelectedTexts: React.Dispatch<
+    React.SetStateAction<{ [key: string]: boolean }>
+  >,
   setAiWritingLoading: React.Dispatch<React.SetStateAction<boolean>>,
-  setAiWritingError: React.Dispatch<React.SetStateAction<string | null>>
+  setAiWritingError: React.Dispatch<React.SetStateAction<string | null>>,
 ) => {
   setAiWritingModalVisible(true);
   setAiWritingNodeId(nodeId);
   setAiWritingParamName(paramName);
-  setAiWritingModalText('');
+  setAiWritingModalText("");
   setAiGeneratedTexts([]);
   setAiSelectedTexts({});
   setAiWritingLoading(false);
   setAiWritingError(null);
-}; 
+};

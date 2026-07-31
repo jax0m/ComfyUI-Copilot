@@ -30,4 +30,4 @@ export const highlightPulseStyle = `
   .animate-fade-in-out {
     animation: fade-in-out 3s forwards;
   }
-`; 
+`;

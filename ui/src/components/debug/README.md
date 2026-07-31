@@ -1,11 +1,14 @@
 # Parameter Debug Interface
 
-This directory contains the Parameter Debug Interface components for ComfyUI Copilot.
+This directory contains the Parameter Debug Interface components for ComfyUI
+Copilot.
 
 ## Directory Structure
 
-- `ParameterDebugInterfaceNew.tsx` - Original large component (refactored to use extracted utilities)
-- `ParameterDebugInterfaceV2.tsx` - Enhanced wrapper component with better architecture
+- `ParameterDebugInterfaceNew.tsx` - Original large component (refactored to use
+  extracted utilities)
+- `ParameterDebugInterfaceV2.tsx` - Enhanced wrapper component with better
+  architecture
 - `index.ts` - Central export file for all components and utilities
 - `types/` - Type definitions extracted from the original component
   - `parameterDebugTypes.ts` - Common type definitions
@@ -22,10 +25,13 @@ This directory contains the Parameter Debug Interface components for ComfyUI Cop
 
 ## Refactoring Strategy
 
-The original `ParameterDebugInterfaceNew.tsx` file was very large and complex. Our strategy was to:
+The original `ParameterDebugInterfaceNew.tsx` file was very large and complex.
+Our strategy was to:
 
-1. Extract independent parts (types, utilities, styles) without changing the core logic
-2. Create a wrapper (`ParameterDebugInterfaceV2.tsx`) that uses the original component but leverages the extracted parts
+1. Extract independent parts (types, utilities, styles) without changing the
+   core logic
+2. Create a wrapper (`ParameterDebugInterfaceV2.tsx`) that uses the original
+   component but leverages the extracted parts
 3. Refactor the original component to use the extracted utility functions
 4. Update the export structure to expose a clean API
 
@@ -42,4 +48,4 @@ The original `ParameterDebugInterfaceNew.tsx` file was very large and complex. O
 1. Continue splitting functionality into more specialized files
 2. Convert screen components to use the extracted utilities
 3. Add proper typing to all function parameters
-4. Implement unit tests for utilities 
+4. Implement unit tests for utilities

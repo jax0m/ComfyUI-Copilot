@@ -7,15 +7,14 @@ FilePath: /ComfyUI-Copilot/backend/service/summary_agent.py
 Description: Summary agent for compressing conversation history
 '''
 
-import json
-from typing import List, Dict, Any
-from pydantic import BaseModel
-from openai import OpenAI
+from typing import Any, Dict, List
 
-from ..utils.key_utils import workflow_config_adapt
-from ..utils.globals import WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key, LLM_DEFAULT_BASE_URL
-from ..utils.request_context import get_config
+from openai import OpenAI
+from pydantic import BaseModel
+
+from ..utils.globals import LLM_DEFAULT_BASE_URL, WORKFLOW_MODEL_NAME, get_comfyui_copilot_api_key
 from ..utils.logger import log
+from ..utils.request_context import get_config
 
 
 class SummaryResponse(BaseModel):
@@ -28,22 +27,22 @@ class SummaryResponse(BaseModel):
 def generate_summary(messages: List[Dict[str, Any]], previous_summary: str = None) -> str:
     """
     生成对话历史摘要
-    
+
     Args:
         messages: 需要摘要的消息列表，格式为 [{"role": "user/assistant", "content": "..."}]
         previous_summary: 之前的摘要（如果有），新摘要会整合历史信息
-        
+
     Returns:
         生成的摘要文本，不超过 200 words
     """
     try:
         # 构建消息内容文本
         messages_text = "\n\n".join([
-            f"**{msg['role'].upper()}**: {msg['content']}" 
+            f"**{msg['role'].upper()}**: {msg['content']}"
             for msg in messages
             if isinstance(msg.get('content'), str)  # 只处理文本内容
         ])
-        
+
         # 构建用户提示
         if previous_summary:
             user_prompt = f"""Please generate a concise summary of the following conversation history, integrating it with the previous summary.
@@ -116,7 +115,7 @@ Keep summaries factual, objective, and efficient."""
             # 捕获特定的 NoneType 迭代错误，通常意味着模型不支持 Structured Outputs 或 SDK 内部处理响应出错
             if "'NoneType' object is not iterable" in str(e):
                 log.warning(f"Structured Outputs failed for model {model_name} (TypeError: {e}). Falling back to standard chat completion.")
-                
+
                 # 降级方案：使用普通的 create 方法，不带 response_format
                 completion = client.chat.completions.create(
                     model=model_name,
@@ -154,20 +153,19 @@ def test_summary_agent():
         {"role": "user", "content": "I need it to support LoRA models"},
         {"role": "assistant", "content": "I've found some workflows with LoRA support. Here are the options..."},
     ]
-    
+
     summary = generate_summary(test_messages)
     print("Generated Summary:", summary)
-    
+
     # 测试增量摘要
     new_messages = [
         {"role": "user", "content": "Can you also add upscaling?"},
         {"role": "assistant", "content": "Sure, I'll modify the workflow to include upscaling nodes..."},
     ]
-    
+
     updated_summary = generate_summary(new_messages, previous_summary=summary)
     print("Updated Summary:", updated_summary)
 
 
 if __name__ == "__main__":
     test_summary_agent()
-

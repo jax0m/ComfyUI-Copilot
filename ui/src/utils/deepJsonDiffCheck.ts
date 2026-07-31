@@ -30,9 +30,14 @@ export const deepJsonDiffCheck = (oldData: any, newData: any) => {
           equal = false;
           break;
         }
-        if (typeof key === 'string' && key.includes("_pos")) {
+        if (typeof key === "string" && key.includes("_pos")) {
           const newDataPos = newDataNodesMap.get(key);
-          if (newDataPos == null || value == null || withoutDeviation(newDataPos[0], value[0], 5) || withoutDeviation(newDataPos[1], value[1], 5)) {
+          if (
+            newDataPos == null ||
+            value == null ||
+            withoutDeviation(newDataPos[0], value[0], 5) ||
+            withoutDeviation(newDataPos[1], value[1], 5)
+          ) {
             equal = false;
             break;
           }

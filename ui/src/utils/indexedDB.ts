@@ -1,7 +1,7 @@
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
-import { Message } from '../types/types';
+import { Message } from "../types/types";
 
 export interface ChatSession {
   id: string;
@@ -11,9 +11,9 @@ export interface ChatSession {
 }
 
 class IndexedDBManager {
-  private dbName = 'ComfyUICopilotDB';
+  private dbName = "ComfyUICopilotDB";
   private version = 1;
-  private storeName = 'chatSessions';
+  private storeName = "chatSessions";
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
@@ -21,7 +21,7 @@ class IndexedDBManager {
       const request = indexedDB.open(this.dbName, this.version);
 
       request.onerror = () => {
-        reject(new Error('Failed to open IndexedDB'));
+        reject(new Error("Failed to open IndexedDB"));
       };
 
       request.onsuccess = () => {
@@ -31,11 +31,11 @@ class IndexedDBManager {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        
+
         // Create object store for chat sessions
         if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
-          store.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+          const store = db.createObjectStore(this.storeName, { keyPath: "id" });
+          store.createIndex("lastUpdated", "lastUpdated", { unique: false });
         }
       };
     });
@@ -47,24 +47,27 @@ class IndexedDBManager {
     }
 
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error("Database not initialized");
     }
 
-    const firstMessage = messages.find(m => m.role === 'user')?.content || '';
+    const firstMessage = messages.find((m) => m.role === "user")?.content || "";
     const session: ChatSession = {
       id: sessionId,
-      firstMessage: firstMessage.length > 50 ? firstMessage.substring(0, 50) + '...' : firstMessage,
+      firstMessage:
+        firstMessage.length > 50
+          ? firstMessage.substring(0, 50) + "..."
+          : firstMessage,
       lastUpdated: Date.now(),
-      messages: messages
+      messages: messages,
     };
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.storeName], 'readwrite');
+      const transaction = this.db!.transaction([this.storeName], "readwrite");
       const store = transaction.objectStore(this.storeName);
       const request = store.put(session);
 
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error('Failed to save session'));
+      request.onerror = () => reject(new Error("Failed to save session"));
     });
   }
 
@@ -74,18 +77,18 @@ class IndexedDBManager {
     }
 
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error("Database not initialized");
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.storeName], 'readonly');
+      const transaction = this.db!.transaction([this.storeName], "readonly");
       const store = transaction.objectStore(this.storeName);
       const request = store.get(sessionId);
 
       request.onsuccess = () => {
         resolve(request.result || null);
       };
-      request.onerror = () => reject(new Error('Failed to get session'));
+      request.onerror = () => reject(new Error("Failed to get session"));
     });
   }
 
@@ -95,14 +98,14 @@ class IndexedDBManager {
     }
 
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error("Database not initialized");
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.storeName], 'readonly');
+      const transaction = this.db!.transaction([this.storeName], "readonly");
       const store = transaction.objectStore(this.storeName);
-      const index = store.index('lastUpdated');
-      const request = index.openCursor(null, 'prev'); // 按时间倒序
+      const index = store.index("lastUpdated");
+      const request = index.openCursor(null, "prev"); // 按时间倒序
 
       const sessions: ChatSession[] = [];
 
@@ -115,7 +118,7 @@ class IndexedDBManager {
           resolve(sessions);
         }
       };
-      request.onerror = () => reject(new Error('Failed to get all sessions'));
+      request.onerror = () => reject(new Error("Failed to get all sessions"));
     });
   }
 
@@ -125,18 +128,18 @@ class IndexedDBManager {
     }
 
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error("Database not initialized");
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.storeName], 'readwrite');
+      const transaction = this.db!.transaction([this.storeName], "readwrite");
       const store = transaction.objectStore(this.storeName);
       const request = store.delete(sessionId);
 
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error('Failed to delete session'));
+      request.onerror = () => reject(new Error("Failed to delete session"));
     });
   }
 }
 
-export const indexedDBManager = new IndexedDBManager(); 
+export const indexedDBManager = new IndexedDBManager();

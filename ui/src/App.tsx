@@ -11,11 +11,13 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { COPILOT_EVENTS } from "./constants/events";
-import { ChatProvider } from './context/ChatContext';
+import { ChatProvider } from "./context/ChatContext";
 
-const WorkflowChat = React.lazy(() => import("./workflowChat/workflowChat").then(module => ({
-  default: module.default
-})));
+const WorkflowChat = React.lazy(() =>
+  import("./workflowChat/workflowChat").then((module) => ({
+    default: module.default,
+  })),
+);
 
 export default function App() {
   const [shouldTriggerUsage, setShouldTriggerUsage] = useState(false);
@@ -26,14 +28,24 @@ export default function App() {
     };
 
     window.addEventListener(COPILOT_EVENTS.EXPLAIN_NODE, handleExplainNode);
-    return () => window.removeEventListener(COPILOT_EVENTS.EXPLAIN_NODE, handleExplainNode);
+    return () =>
+      window.removeEventListener(
+        COPILOT_EVENTS.EXPLAIN_NODE,
+        handleExplainNode,
+      );
   }, []);
 
   return (
     <ChatProvider>
       <div className="h-full w-full flex flex-col">
-        <Suspense fallback={<div className="h-full w-full flex items-center justify-center">Loading...</div>}>
-          <WorkflowChat 
+        <Suspense
+          fallback={
+            <div className="h-full w-full flex items-center justify-center">
+              Loading...
+            </div>
+          }
+        >
+          <WorkflowChat
             visible={true}
             triggerUsage={shouldTriggerUsage}
             onUsageTriggered={() => setShouldTriggerUsage(false)}

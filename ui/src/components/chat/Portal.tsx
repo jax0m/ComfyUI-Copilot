@@ -1,38 +1,42 @@
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
-import { ReactNode, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { ReactNode, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface PortalProps {
-    children: ReactNode;
-    container?: HTMLElement;
-    className?: string;
+  children: ReactNode;
+  container?: HTMLElement;
+  className?: string;
 }
 
-export function Portal({ children, container = document.body, className = '' }: PortalProps) {
-    const [mounted, setMounted] = useState(false);
-    
-    useEffect(() => {
-        setMounted(true);
-        return () => setMounted(false);
-    }, []);
+export function Portal({
+  children,
+  container = document.body,
+  className = "",
+}: PortalProps) {
+  const [mounted, setMounted] = useState(false);
 
-    if (!mounted) {
-        return null;
-    }
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
-    // 创建一个包装器来应用样式
-    const portalContent = (
-        <div 
-            className={`fixed inset-0 ${className}`}
-            style={{
-                zIndex: 9999
-            }}
-        >
-            {children}
-        </div>
-    );
+  if (!mounted) {
+    return null;
+  }
 
-    return createPortal(portalContent, container);
-} 
+  // 创建一个包装器来应用样式
+  const portalContent = (
+    <div
+      className={`fixed inset-0 ${className}`}
+      style={{
+        zIndex: 9999,
+      }}
+    >
+      {children}
+    </div>
+  );
+
+  return createPortal(portalContent, container);
+}

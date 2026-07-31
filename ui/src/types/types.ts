@@ -50,11 +50,11 @@ export interface NodeInfo {
 }
 
 export interface Subgraph {
-    id: number;
-    name: string; 
-    description: string;
-    json: Record<string, any>;
-    tags: string[];
+  id: number;
+  name: string;
+  description: string;
+  json: Record<string, any>;
+  tags: string[];
 }
 
 export interface Workflow {
@@ -90,23 +90,23 @@ export interface Message {
   metadata?: any;
   trace_id?: string;
   debugGuide?: boolean;
-  ext?: ExtItem[];  // 添加ext字段
-  workflow_checkpoint_id?: number;  // 添加工作流检查点ID字段
+  ext?: ExtItem[]; // 添加ext字段
+  workflow_checkpoint_id?: number; // 添加工作流检查点ID字段
 }
 
 export interface ToolCall {
-  toolCallId: string
-  name: string
-  args: {}
-  result?: {} | []
+  toolCallId: string;
+  name: string;
+  args: {};
+  result?: {} | [];
 }
 
 export interface ComponentConfig {
-  id: string
-  name: string
-  type: string
-  props: any
-  children: ComponentConfig[]
+  id: string;
+  name: string;
+  type: string;
+  props: any;
+  children: ComponentConfig[];
 }
 
 export interface WorkflowOption {
@@ -128,8 +128,14 @@ export interface OptimizedWorkflowRequest {
 }
 
 export interface OptimizedWorkflowResponse {
-  workflow: any;  // 工作流数据
-  optimized_params: [number, string, number, string, string | number | boolean][];  // 优化后的参数
+  workflow: any; // 工作流数据
+  optimized_params: [
+    number,
+    string,
+    number,
+    string,
+    string | number | boolean,
+  ][]; // 优化后的参数
 }
 
 export interface TrackEventRequest {

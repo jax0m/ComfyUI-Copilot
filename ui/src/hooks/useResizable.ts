@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { debounce } from 'lodash';
+import { useState, useEffect, useCallback } from "react";
+import { debounce } from "lodash";
 
 interface ResizeConfig {
   minWidth?: number;
@@ -8,52 +8,61 @@ interface ResizeConfig {
   maxHeight?: number;
 }
 
-export function useResizable(config: ResizeConfig = {}, enabled: boolean = true) {
+export function useResizable(
+  config: ResizeConfig = {},
+  enabled: boolean = true,
+) {
   const [isResizing, setIsResizing] = useState(false);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth / 3,
     height: window.innerHeight,
-    top: 0
+    top: 0,
   });
 
   const handleMouseMove = useCallback(
     debounce((e: MouseEvent) => {
       if (!isResizing) return;
 
-      setDimensions(prev => {
+      setDimensions((prev) => {
         const newWidth = window.innerWidth - e.clientX;
         const clampedWidth = Math.min(
           Math.max(config.minWidth || 300, newWidth),
-          config.maxWidth || window.innerWidth * 0.8
+          config.maxWidth || window.innerWidth * 0.8,
         );
         return { ...prev, width: clampedWidth };
       });
     }, 16),
-    [isResizing, config]
+    [isResizing, config],
   );
 
-  const handleHeightResize = useCallback((deltaY: number) => {
-    setDimensions(prev => {
-      const newHeight = prev.height - deltaY;
-      const newTop = prev.top + deltaY;
-      
-      return {
-        ...prev,
-        height: Math.min(Math.max(config.minHeight || 300, newHeight), config.maxHeight || window.innerHeight),
-        top: Math.max(0, newTop)
-      };
-    });
-  }, [config]);
+  const handleHeightResize = useCallback(
+    (deltaY: number) => {
+      setDimensions((prev) => {
+        const newHeight = prev.height - deltaY;
+        const newTop = prev.top + deltaY;
+
+        return {
+          ...prev,
+          height: Math.min(
+            Math.max(config.minHeight || 300, newHeight),
+            config.maxHeight || window.innerHeight,
+          ),
+          top: Math.max(0, newTop),
+        };
+      });
+    },
+    [config],
+  );
 
   useEffect(() => {
     if (!enabled || !isResizing) return;
 
     const handleMouseMove = debounce((e: MouseEvent) => {
-      setDimensions(prev => {
+      setDimensions((prev) => {
         const newWidth = window.innerWidth - e.clientX;
         const clampedWidth = Math.min(
           Math.max(config.minWidth || 300, newWidth),
-          config.maxWidth || window.innerWidth * 0.8
+          config.maxWidth || window.innerWidth * 0.8,
         );
         return { ...prev, width: clampedWidth };
       });
@@ -61,13 +70,13 @@ export function useResizable(config: ResizeConfig = {}, enabled: boolean = true)
 
     const handleMouseUp = () => setIsResizing(false);
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       handleMouseMove.cancel();
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing, config, enabled]);
 
@@ -75,6 +84,6 @@ export function useResizable(config: ResizeConfig = {}, enabled: boolean = true)
     isResizing,
     setIsResizing,
     dimensions,
-    handleHeightResize
+    handleHeightResize,
   };
-} 
+}

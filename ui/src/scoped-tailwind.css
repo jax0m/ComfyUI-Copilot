@@ -16,7 +16,19 @@
 #comfyui-copilot-plugin,
 #comfyui-copilot-start-pop-view {
   /* Reset common elements */
-  h1, h2, h3, h4, h5, h6, p, ul, ol, button, input, textarea, select {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  ul,
+  ol,
+  button,
+  input,
+  textarea,
+  select {
     margin: 0;
     padding: 0;
     font-size: 100%;
@@ -30,7 +42,14 @@
     border-style: solid;
   }
 
-  img, svg, video, canvas, audio, iframe, embed, object {
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
     display: block;
     vertical-align: middle;
   }
@@ -43,28 +62,30 @@
 }
 
 .hide-scrollbar {
-  scrollbar-width: none;      /* Firefox */
-  -ms-overflow-style: none;   /* IE 10+ */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
 }
 
 .hide-scrollbar::-webkit-scrollbar {
-  display: none;              /* Chrome/Safari/Webkit */
+  display: none; /* Chrome/Safari/Webkit */
 }
 
 @keyframes breathe {
-  0%, 100% {
-      opacity: 1;
-      transform: scale(1);
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
   50% {
-      opacity: 0.7;
-      transform: scale(1.2);
+    opacity: 0.7;
+    transform: scale(1.2);
   }
 }
 
 @keyframes colorBreathe {
-  0%, 100% {
-      color: hsl(189, 97%, 36%);
+  0%,
+  100% {
+    color: hsl(189, 97%, 36%);
   }
   50% {
     color: var(--p-text-color) / 20; /* gray-200 */
@@ -72,7 +93,9 @@
 }
 
 .animate-breathe-green {
-  animation: breathe 3s ease-in-out infinite, colorBreathe 3s ease-in-out infinite;
+  animation:
+    breathe 3s ease-in-out infinite,
+    colorBreathe 3s ease-in-out infinite;
 }
 
 @keyframes rotate {
@@ -83,18 +106,22 @@
 
 .beautify-card-light {
   box-shadow: 0px -16px 24px 0px rgba(255, 255, 255, 0.25) inset;
-  background-image: linear-gradient(135deg, hsl(210 100% 98%), hsl(270 100% 96%));
+  background-image: linear-gradient(
+    135deg,
+    hsl(210 100% 98%),
+    hsl(270 100% 96%)
+  );
 
   .card-border {
     overflow: hidden;
     pointer-events: none;
-  
+
     position: absolute;
     z-index: -1;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-  
+
     width: calc(100% + 2px);
     height: calc(100% + 2px);
     background-image: linear-gradient(
@@ -107,14 +134,14 @@
   .card-border::before {
     content: "";
     pointer-events: none;
-  
+
     position: fixed;
     z-index: 200;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%), rotate(0deg);
     transform-origin: left;
-  
+
     width: 200%;
     height: 10rem;
     background-image: linear-gradient(
@@ -131,7 +158,8 @@
 .beautify-card-dark {
   box-shadow: 0px -16px 24px 0px rgba(255, 255, 255, 0.25) inset;
   background-color: hsla(240, 15%, 9%, 1);
-  background-image: radial-gradient(at 88% 40%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+  background-image:
+    radial-gradient(at 88% 40%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
     radial-gradient(at 49% 30%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
     radial-gradient(at 14% 26%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
     radial-gradient(at 0% 64%, hsl(189, 99%, 26%) 0px, transparent 85%),
@@ -142,13 +170,13 @@
   .card-border {
     overflow: hidden;
     pointer-events: none;
-  
+
     position: absolute;
     z-index: -1;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-  
+
     width: calc(100% + 2px);
     height: calc(100% + 2px);
     background-image: linear-gradient(
@@ -161,14 +189,14 @@
   .card-border::before {
     content: "";
     pointer-events: none;
-  
+
     position: fixed;
     z-index: 200;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%), rotate(0deg);
     transform-origin: left;
-  
+
     width: 200%;
     height: 10rem;
     background-image: linear-gradient(
@@ -207,4 +235,6 @@
   animation: rotate 1s linear infinite;
 }
 
-.search-input input::placeholder { color: #888; }
+.search-input input::placeholder {
+  color: #888;
+}

@@ -2,6 +2,12 @@ __pycache__
 hash
 .env
 .env.llm
+# Standalone pages / artifacts not used by the custom node
+index.html
+poster.html
+Framework.png
+# Orphaned root package-lock (real one is in ui/)
+package-lock.json
 # Logs
 logs
 *.log
@@ -31,3 +37,5 @@ backup
 .cache
 # dev
 ui/yarn.lock
+.venv
+.ruff_cache
