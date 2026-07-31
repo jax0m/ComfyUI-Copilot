@@ -64,10 +64,12 @@ export function ChatHeader({
   };
 
   const onFeedback = () => {
-    window.open(
-      "https://docs.google.com/forms/d/e/1FAIpQLSf_SeUpgrZh8sPGwVFXAlsviVXKpsQnyaevcB2VrIqUBYUMKg/viewform?usp=dialog",
-      "_blank",
-    );
+    if (window.confirm("This will open a Google Forms page in a new tab to submit feedback. Continue?")) {
+      window.open(
+        "https://docs.google.com/forms/d/e/1FAIpQLSf_SeUpgrZh8sPGwVFXAlsviVXKpsQnyaevcB2VrIqUBYUMKg/viewform?usp=dialog",
+        "_blank",
+      );
+    }
   };
 
   useEffect(() => {

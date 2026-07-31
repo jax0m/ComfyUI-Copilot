@@ -1,7 +1,6 @@
 // Copyright (C) 2025 AIDC-AI
 // Licensed under the MIT License.
 
-import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
 import {
   queuePrompt,
   getOutputImageByPromptId,
@@ -62,17 +61,6 @@ export const handleStartGeneration = async (
     console.error("Error capturing workflow data:", error);
   }
 
-  // Send tracking event
-  WorkflowChatAPI.trackEvent({
-    event_type: "start_generation",
-    message_type: "parameter_debug",
-    message_id: task_id,
-    data: {
-      workflow: workflowData,
-      all_params: paramTestValues,
-      count: totalCombinations,
-    },
-  });
 
   // If we have no combinations, show error and return
   if (paramCombinations.length === 0) {
@@ -137,7 +125,7 @@ export const handleStartGeneration = async (
     const newImages: any[] = Array(paramCombinations.length)
       .fill(null)
       .map((_, i) => ({
-        url: `https://source.unsplash.com/random/300x300?sig=${Math.random()}`, // Default placeholder
+        url: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300' fill='none'%3E%3Crect width='300' height='300' fill='%23F3F4F6'/%3E%3Cpath d='M150 150C161.046 150 170 141.046 170 130C170 118.954 161.046 110 150 110C138.954 110 130 118.954 130 130C130 141.046 138.954 150 150 150Z' fill='%239CA3AF'/%3E%3C/svg%3E`, // Default placeholder
         params: generateDynamicParams(paramTestValues, i),
       }));
 

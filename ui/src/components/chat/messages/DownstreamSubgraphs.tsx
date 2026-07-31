@@ -1,349 +1,269 @@
-// Copyright (C) 2025 AIDC-AI
-// Licensed under the MIT License.
 
-import { app } from "../../../utils/comfyapp";
-import { useState, useRef, useEffect, useCallback } from "react";
-import { ChatResponse, Message, Subgraph } from "../../../types/types";
-import { Network } from "vis-network";
-import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
-import { generateUUID } from "../../../utils/uuid";
-import { addNodeOnGraph } from "../../../utils/graphUtils";
-import { useChatContext } from "../../../context/ChatContext";
-
-interface DownstreamSubgraphsProps {
-  content: string;
-  name?: string;
-  avatar: string;
-  onAddMessage?: (message: Message) => void;
-}
-
-export function DownstreamSubgraphs({
-  content,
-  name = "Assistant",
-  avatar,
-  onAddMessage,
-}: DownstreamSubgraphsProps) {
-  const { state, dispatch } = useChatContext();
-  const { selectedNode, installedNodes } = state;
-  const response = JSON.parse(content) as ChatResponse;
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const networkRef = useRef<Network | null>(null);
-
-  const nodes =
-    response.ext?.find((item) => item.type === "downstream_subgraph_search")
-      ?.data || [];
-
-  // 将 Subgraph 转换为 vis.js 格式的函数
-  const convertToVisFormat = (subgraph: Subgraph) => {
-    const visNodes = subgraph.json.nodes.map((node) => ({
-      id: node.id,
-      label: node.type,
-      color: {
-        background: "#2B7CE9",
-        border: "#1B5BB1",
-      },
-      font: {
-        size: 16,
-        color: "#FFFFFF",
-        face: "arial",
-        bold: true,
-      },
-      margin: 12,
-      padding: 10,
-      shape: "box",
-      widthConstraint: {
-        minimum: 100,
-        maximum: 200,
-      },
-    }));
-
-    const visEdges = subgraph.json.links.map((link) => ({
-      from: link.origin_id,
-      to: link.target_id,
-      arrows: {
-        to: { enabled: true, scaleFactor: 1.2 },
-      },
-      color: "#000000",
-      width: 2,
-    }));
-
-    return { nodes: visNodes, edges: visEdges };
-  };
-
-  // 添加清理函数
-  useEffect(() => {
-    return () => {
-      if (networkRef.current) {
-        networkRef.current.destroy();
-        networkRef.current = null;
-      }
-    };
-  }, []);
-
-  const createNetwork = useCallback((el: HTMLElement, node: Subgraph) => {
-    if (networkRef.current) {
-      networkRef.current.destroy();
-    }
-
-    const visData = convertToVisFormat(node);
-    const newNetwork = new Network(el, visData, {
-      nodes: {
-        shape: "box",
-        margin: 12,
-        padding: 10,
-        font: {
-          size: 16,
-          color: "#FFFFFF",
-          face: "arial",
-          bold: true,
-        },
-        borderWidth: 2,
-        shadow: {
-          enabled: true,
-          color: "rgba(0,0,0,0.2)",
-          size: 5,
-        },
-      },
-      edges: {
-        arrows: "to",
-        color: "#000000",
-        width: 2,
-        smooth: {
-          enabled: true,
-          type: "straightCross",
-        },
-      },
-      physics: {
-        enabled: true,
-        solver: "hierarchicalRepulsion",
-        hierarchicalRepulsion: {
-          nodeDistance: 200,
-          springLength: 200,
-        },
-      },
-      layout: {
-        hierarchical: {
-          enabled: true,
-          direction: "UD",
-          sortMethod: "directed",
-          nodeSpacing: 200,
-          levelSeparation: 150,
-        },
-      },
-      interaction: {
-        dragNodes: false,
-        zoomView: false,
-        dragView: false,
-      },
-    });
-
-    networkRef.current = newNetwork;
-  }, []);
-
-  const checkAndLoadSubgraph = async (node: Subgraph) => {
-    console.log(
-      "[DownstreamSubgraphs] Starting checkAndLoadSubgraph with node:",
-      node,
-    );
-
-    WorkflowChatAPI.trackEvent({
-      event_type: "subgraph_accept",
-      message_type: "subgraph",
-      message_id: response.message_id,
-      data: {
-        subgraph_name: node.name,
-        subgraph_tags: node.tags,
-      },
-    });
-
-    const nodes = node.json.nodes;
-    const selectedNode = Object.values(app.canvas.selected_nodes)[0];
-
-    if (!selectedNode) {
-      console.warn("[DownstreamSubgraphs] No node selected");
-      alert("Please select a upstream node first before adding a subgraph.");
-      return;
-    }
-
-    // 检查所有节点是否已安装
-    const requiredNodeTypes = nodes.map((node) => node.type);
-    const installedNodeTypes = installedNodes;
-    console.log(
-      "[DownstreamSubgraphs] Required node types:",
-      requiredNodeTypes,
-    );
-    console.log(
-      "[DownstreamSubgraphs] Installed node types:",
-      installedNodeTypes,
-    );
-
-    const missingNodeTypes = requiredNodeTypes.filter(
-      (type) => !installedNodeTypes.includes(type),
-    );
-    console.log("[DownstreamSubgraphs] Missing node types:", missingNodeTypes);
-
-    if (missingNodeTypes.length > 0) {
-      try {
-        console.log("[DownstreamSubgraphs] Fetching info for missing nodes");
-        const nodeInfos =
-          await WorkflowChatAPI.batchGetNodeInfo(missingNodeTypes);
-        console.log("[DownstreamSubgraphs] Received node infos:", nodeInfos);
-
-        // 构造消息内容 - 修改为显示按钮列表格式
-        const messageContent = {
-          text: ``,
-          ext: [
-            {
-              type: "node_install_guide",
-              data: nodeInfos.map((info) => ({
-                name: info.name,
-                repository_url: info.github_url,
-              })),
-            },
-          ],
-        };
-        console.log(
-          "[DownstreamSubgraphs] Created message content:",
-          messageContent,
-        );
-
-        const aiMessage = {
-          id: generateUUID(),
-          role: "ai",
-          content: JSON.stringify(messageContent),
-          format: "markdown",
-          name: "Assistant",
-          // 保存原始的subgraph信息，用于后续加载
-          metadata: {
-            pendingSubgraph: node,
-          },
-        };
-        console.log("[DownstreamSubgraphs] Created AI message:", aiMessage);
-
-        onAddMessage?.(aiMessage);
-        return;
-      } catch (error) {
-        console.error("[DownstreamSubgraphs] Error fetching node info:", error);
-        alert("Error checking required nodes. Please try again.");
-        return;
-      }
-    }
-
-    console.log(
-      "[DownstreamSubgraphs] All required nodes are installed, proceeding to load subgraph",
-    );
-    loadSubgraphToCanvas(node, selectedNode);
-  };
-
-  const loadSubgraphToCanvas = (node: Subgraph, selectedNode: any) => {
-    const nodes = node.json.nodes;
-    const links = node.json.links;
-
-    const entryNode = nodes.find((node) => node.id === 0);
-    const entryNodeId = entryNode?.id;
-    console.log("[DownstreamSubgraphs] Entry node ID:", entryNodeId);
-
-    const nodeMap = {};
-    if (entryNodeId !== null) {
-      nodeMap[entryNodeId] = selectedNode;
-    }
-
-    // 创建其他所有节点
-    app.canvas.emitBeforeChange();
-    try {
-      for (const node of nodes) {
-        if (node.id !== entryNodeId) {
-          const posEntryOld = entryNode?.pos;
-          const posEntryNew = [selectedNode._pos[0], selectedNode._pos[1]];
-          const nodePosNew = [
-            node.pos[0] + posEntryNew[0] - posEntryOld[0],
-            node.pos[1] + posEntryNew[1] - posEntryOld[1],
-          ];
-          nodeMap[node.id] = addNodeOnGraph(node.type, { pos: nodePosNew });
-        }
-      }
-      // 处理所有连接
-      for (const link of links) {
-        const origin_node = nodeMap[link["origin_id"]];
-        const target_node = nodeMap[link["target_id"]];
-
-        if (origin_node && target_node) {
-          origin_node.connect(
-            link["origin_slot"],
-            target_node,
-            link["target_slot"],
-          );
-        }
-      }
-    } finally {
-      app.canvas.emitAfterChange();
-    }
-  };
-
-  useEffect(() => {
-    // 只在组件挂载时添加事件监听
-    const handleNodeSelection = () => {
-      const selectedNodes = app.canvas.selected_nodes;
-      if (Object.keys(selectedNodes ?? {}).length) {
-        dispatch({
-          type: "SET_SELECTED_NODE",
-          payload: Object.values(selectedNodes),
-        });
-      } else {
-        dispatch({ type: "SET_SELECTED_NODE", payload: null });
-      }
-    };
-
-    document.addEventListener("click", handleNodeSelection);
-    return () => {
-      document.removeEventListener("click", handleNodeSelection);
-    };
-  }, []);
-
-  return (
-    <div className="rounded-lg bg-gray-500 p-3 text-gray-700 text-xs break-words overflow-visible">
-      {nodes.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {nodes.map((node: Subgraph) => (
-              <div key={node.name} className="relative group">
-                <button
-                  className="px-3 py-1.5 bg-blue-500 text-white rounded-md 
-                                             hover:bg-blue-600 transition-colors text-xs"
-                  onClick={() => checkAndLoadSubgraph(node)}
-                  onMouseEnter={() => setHoveredNode(node.name)}
-                  onMouseLeave={() => setHoveredNode(null)}
-                >
-                  {node.name}
-                </button>
-                <p className="text-xs ml-3 text-white">
-                  [{node.tags.join(", ")}]
-                </p>
-                {hoveredNode === node.name && (
-                  <div
-                    className="fixed -translate-y-full 
-                                                 z-[9999] w-[500px] p-4 bg-gray-800 text-white text-xs 
-                                                 rounded-md shadow-lg mb-2 border border-gray-700"
-                    style={{
-                      left: "calc(var(--mouse-x, 0) + 16px)",
-                      top: "calc(var(--mouse-y, 0) - 8px)",
-                    }}
-                  >
-                    <div
-                      style={{ width: "100%", height: "300px" }}
-                      ref={(el) => {
-                        if (el) {
-                          createNetwork(el, node);
                         }
                       }}
                     />
-                  </div>
+                    }}
+                  >
                 )}
-              </div>
+                >
+              })),
             ))}
+            {
+            },
+          );
+          ],
+          ];
+          },
+        );
+        }
+        });
+        },
+        };
+      )}
+      }
+      },
+    );
+    }
+    }));
+    });
+    };
+  );
+  }, []);
+  };
+}
+        alert("Error checking required nodes. Please try again.");
+      alert("Please select a upstream node first before adding a subgraph.");
+      app.canvas.emitAfterChange();
+    app.canvas.emitBeforeChange();
+      arrows: {
+        arrows: "to",
+  avatar,
+  avatar: string;
+          await WorkflowChatAPI.batchGetNodeInfo(missingNodeTypes);
+        background: "#2B7CE9",
+          bold: true,
+        bold: true,
+        border: "#1B5BB1",
+        borderWidth: 2,
+                </button>
+                <button
+      } catch (error) {
+                    className="fixed -translate-y-full 
+                  className="px-3 py-1.5 bg-blue-500 text-white rounded-md 
+      color: {
+        color: "#000000",
+      color: "#000000",
+          color: "#FFFFFF",
+        color: "#FFFFFF",
+          color: "rgba(0,0,0,0.2)",
+        console.error("[DownstreamSubgraphs] Error fetching node info:", error);
+        console.log(
+    console.log(
+        console.log("[DownstreamSubgraphs] Created AI message:", aiMessage);
+    console.log("[DownstreamSubgraphs] Entry node ID:", entryNodeId);
+        console.log("[DownstreamSubgraphs] Fetching info for missing nodes");
+    console.log("[DownstreamSubgraphs] Missing node types:", missingNodeTypes);
+        console.log("[DownstreamSubgraphs] Received node infos:", nodeInfos);
+      console.warn("[DownstreamSubgraphs] No node selected");
+        const aiMessage = {
+  const checkAndLoadSubgraph = async (node: Subgraph) => {
+  const convertToVisFormat = (subgraph: Subgraph) => {
+  const createNetwork = useCallback((el: HTMLElement, node: Subgraph) => {
+    const entryNodeId = entryNode?.id;
+    const entryNode = nodes.find((node) => node.id === 0);
+    const handleNodeSelection = () => {
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+    const installedNodeTypes = installedNodes;
+    const links = node.json.links;
+  const loadSubgraphToCanvas = (node: Subgraph, selectedNode: any) => {
+        const messageContent = {
+    const missingNodeTypes = requiredNodeTypes.filter(
+  const networkRef = useRef<Network | null>(null);
+    const newNetwork = new Network(el, visData, {
+        const nodeInfos =
+    const nodeMap = {};
+          const nodePosNew = [
+  const nodes =
+    const nodes = node.json.nodes;
+        const origin_node = nodeMap[link["origin_id"]];
+          const posEntryNew = [selectedNode._pos[0], selectedNode._pos[1]];
+          const posEntryOld = entryNode?.pos;
+    const requiredNodeTypes = nodes.map((node) => node.type);
+  const response = JSON.parse(content) as ChatResponse;
+  const { selectedNode, installedNodes } = state;
+    const selectedNode = Object.values(app.canvas.selected_nodes)[0];
+      const selectedNodes = app.canvas.selected_nodes;
+  const { state, dispatch } = useChatContext();
+        const target_node = nodeMap[link["target_id"]];
+    const visData = convertToVisFormat(node);
+    const visEdges = subgraph.json.links.map((link) => ({
+    const visNodes = subgraph.json.nodes.map((node) => ({
+  content,
+          content: JSON.stringify(messageContent),
+  content: string;
+// Copyright (C) 2025 AIDC-AI
+                          createNetwork(el, node);
+      ?.data || [];
+              data: nodeInfos.map((info) => ({
+          direction: "UD",
+        dispatch({
+        dispatch({ type: "SET_SELECTED_NODE", payload: null });
+                    <div
+                  </div>
+                  <div
+              </div>
           </div>
         </div>
-      )}
     </div>
-  );
-}
+          <div className="flex flex-wrap gap-2">
+    <div className="rounded-lg bg-gray-500 p-3 text-gray-700 text-xs break-words overflow-visible">
+        <div className="space-y-3">
+              <div key={node.name} className="relative group">
+    document.addEventListener("click", handleNodeSelection);
+      document.removeEventListener("click", handleNodeSelection);
+      "[DownstreamSubgraphs] All required nodes are installed, proceeding to load subgraph",
+          "[DownstreamSubgraphs] Created message content:",
+      "[DownstreamSubgraphs] Installed node types:",
+}: DownstreamSubgraphsProps) {
+      "[DownstreamSubgraphs] Required node types:",
+      "[DownstreamSubgraphs] Starting checkAndLoadSubgraph with node:",
+        dragNodes: false,
+        dragView: false,
+      edges: {
+      } else {
+          enabled: true,
+        enabled: true,
+export function DownstreamSubgraphs({
+          ext: [
+          face: "arial",
+        face: "arial",
+    } finally {
+        font: {
+      font: {
+      for (const link of links) {
+      for (const node of nodes) {
+          format: "markdown",
+      from: link.origin_id,
+        hierarchical: {
+        hierarchicalRepulsion: {
+                                             hover:bg-blue-600 transition-colors text-xs"
+                {hoveredNode === node.name && (
+          id: generateUUID(),
+      id: node.id,
+                        if (el) {
+    if (entryNodeId !== null) {
+    if (missingNodeTypes.length > 0) {
+      if (networkRef.current) {
+    if (networkRef.current) {
+        if (node.id !== entryNodeId) {
+      if (Object.keys(selectedNodes ?? {}).length) {
+        if (origin_node && target_node) {
+    if (!selectedNode) {
+import { addNodeOnGraph } from "../../../utils/graphUtils";
+import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
+import { app } from "../../../utils/comfyapp";
+import { ChatResponse, Message, Subgraph } from "../../../types/types";
+import { generateUUID } from "../../../utils/uuid";
+import { Network } from "vis-network";
+import { useChatContext } from "../../../context/ChatContext";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { WorkflowChatAPI } from "../../apis/workflowChatApi";
+      installedNodeTypes,
+      interaction: {
+interface DownstreamSubgraphsProps {
+      label: node.type,
+      layout: {
+                      left: "calc(var(--mouse-x, 0) + 16px)",
+          levelSeparation: 150,
+// Licensed under the MIT License.
+            link["origin_slot"],
+            link["target_slot"],
+    loadSubgraphToCanvas(node, selectedNode);
+        margin: 12,
+      margin: 12,
+        maximum: 200,
+          messageContent,
+          metadata: {
+        minimum: 100,
+          name: "Assistant",
+  name = "Assistant",
+                name: info.name,
+  name?: string;
+        networkRef.current.destroy();
+      networkRef.current.destroy();
+    networkRef.current = newNetwork;
+        networkRef.current = null;
+      node,
+          nodeDistance: 200,
+      nodeMap[entryNodeId] = selectedNode;
+          nodeMap[node.id] = addNodeOnGraph(node.type, { pos: nodePosNew });
+                  {node.name}
+            node.pos[0] + posEntryNew[0] - posEntryOld[0],
+            node.pos[1] + posEntryNew[1] - posEntryOld[1],
+      nodes: {
+      {nodes.length > 0 && (
+            {nodes.map((node: Subgraph) => (
+          nodeSpacing: 200,
+                  [{node.tags.join(", ")}]
+  onAddMessage,
+        onAddMessage?.(aiMessage);
+  onAddMessage?: (message: Message) => void;
+                  onClick={() => checkAndLoadSubgraph(node)}
+                  onMouseEnter={() => setHoveredNode(node.name)}
+                  onMouseLeave={() => setHoveredNode(null)}
+          origin_node.connect(
+                </p>
+        padding: 10,
+      padding: 10,
+          payload: Object.values(selectedNodes),
+                <p className="text-xs ml-3 text-white">
+            pendingSubgraph: node,
+      physics: {
+                      ref={(el) => {
+                repository_url: info.github_url,
+      requiredNodeTypes,
+    response.ext?.find((item) => item.type === "downstream_subgraph_search")
+        return;
+      return;
+    return () => {
+  return (
+    return { nodes: visNodes, edges: visEdges };
+          role: "ai",
+                                                 rounded-md shadow-lg mb-2 border border-gray-700"
+        shadow: {
+        shape: "box",
+      shape: "box",
+          size: 16,
+        size: 16,
+          size: 5,
+        smooth: {
+        solver: "hierarchicalRepulsion",
+          sortMethod: "directed",
+          springLength: 200,
+                    style={{
+                      style={{ width: "100%", height: "300px" }}
+            target_node,
+          text: ``,
+        to: { enabled: true, scaleFactor: 1.2 },
+      to: link.target_id,
+                      top: "calc(var(--mouse-y, 0) - 8px)",
+      try {
+    try {
+      (type) => !installedNodeTypes.includes(type),
+              type: "node_install_guide",
+          type: "SET_SELECTED_NODE",
+          type: "straightCross",
+  useEffect(() => {
+        width: 2,
+      width: 2,
+      widthConstraint: {
+                                                 z-[9999] w-[500px] p-4 bg-gray-800 text-white text-xs 
+        zoomView: false,
+          // 保存原始的subgraph信息，用于后续加载
+    // 创建其他所有节点
+    // 只在组件挂载时添加事件监听
+      // 处理所有连接
+  // 将 Subgraph 转换为 vis.js 格式的函数
+        // 构造消息内容 - 修改为显示按钮列表格式
+    // 检查所有节点是否已安装
+  // 添加清理函数

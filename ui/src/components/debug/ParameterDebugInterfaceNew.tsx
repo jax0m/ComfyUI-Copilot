@@ -145,7 +145,7 @@ export const ParameterDebugInterface: React.FC<
       return Array(12)
         .fill(null)
         .map((_, i) => ({
-          url: `https://source.unsplash.com/random/300x300?sig=${Math.random()}`,
+          url: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300' fill='none'%3E%3Crect width='300' height='300' fill='%23F3F4F6'/%3E%3Cpath d='M150 150C161.046 150 170 141.046 170 130C170 118.954 161.046 110 150 110C138.954 110 130 118.954 130 130C130 141.046 138.954 150 150 150Z' fill='%239CA3AF'/%3E%3C/svg%3E`,
           params: {
             step: i % 3 === 0 ? 5 : i % 3 === 1 ? 10 : 15,
             sampler_name: "euler",

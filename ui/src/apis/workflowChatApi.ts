@@ -18,7 +18,6 @@ import {
   OptimizedWorkflowResponse,
   Node,
   ExtItem,
-  TrackEventRequest,
 } from "../types/types";
 import { generateUUID } from "../utils/uuid";
 import { encryptWithRsaPublicKey } from "../utils/crypto";
@@ -72,35 +71,6 @@ const checkAndSaveApiKey = (response: Response) => {
 };
 
 export namespace WorkflowChatAPI {
-  export async function trackEvent(request: TrackEventRequest): Promise<void> {
-    try {
-      // Use non-blocking fetch to avoid interrupting the main flow
-      const apiKey = getApiKey();
-      const browserLanguage = getBrowserLanguage();
-      request.session_id = localStorage.getItem("sessionId") || null;
-      fetch(`${BASE_URL}/api/chat/track_event`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "application/json",
-          "Access-Control-Allow-Origin": "*",
-          Authorization: `Bearer ${apiKey}`,
-          "trace-id": generateUUID(),
-          "Accept-Language": browserLanguage,
-        },
-        body: JSON.stringify(request),
-      }).catch((err) => {
-        // Silently log errors without throwing exceptions
-        console.warn("Track event failed:", err);
-      });
-    } catch (error) {
-      // Catch any synchronous errors but don't interrupt the business flow
-      console.warn("Error preparing track event:", error);
-    }
-    // Return immediately without waiting for the response
-    return Promise.resolve();
-  }
-
   // 把img文件存储到comfyUI本地
   export async function uploadImage(
     imageFile: File,
@@ -164,17 +134,6 @@ export namespace WorkflowChatAPI {
       } = getOpenAiConfig();
       // Generate a unique message ID for this chat request
       const messageId = generateUUID();
-
-      trackEvent({
-        event_type: "chat_request",
-        message_type: "chat",
-        data: {
-          prompt: prompt,
-          ext: ext,
-          intent: intent,
-          messageId: messageId,
-        },
-      });
 
       // Convert frontend Message format to OpenAI format
       const openaiMessages = historyMessages
@@ -545,40 +504,6 @@ export namespace WorkflowChatAPI {
               ", please refresh the page and try again.",
       );
       throw error;
-    }
-  }
-
-  export async function fetchAnnouncement(): Promise<string> {
-    try {
-      const apiKey = getApiKey();
-      const browserLanguage = getBrowserLanguage();
-
-      // Prepare headers
-      const headers: Record<string, string> = {
-        accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "trace-id": generateUUID(),
-        "Accept-Language": browserLanguage,
-      };
-
-      const response = await fetch(`${BASE_URL}/api/chat/announcement`, {
-        method: "GET",
-        headers,
-      });
-
-      checkAndSaveApiKey(response);
-
-      const result = await response.json();
-      if (!result.success) {
-        const message = result.message || "Failed to fetch announcement";
-        console.error(message);
-        return "";
-      }
-
-      return result.data as string;
-    } catch (error) {
-      console.error("Error fetching announcement:", error);
-      return "";
     }
   }
 

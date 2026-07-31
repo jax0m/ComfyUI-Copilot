@@ -4,7 +4,6 @@
 import { useState } from "react";
 import { ChatResponse, Node } from "../../../types/types";
 import { addNodeOnGraph } from "../../../utils/graphUtils";
-import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
 
 interface NodeSearchProps {
   content: string;
@@ -96,14 +95,6 @@ export function NodeSearch({
                           addNode,
                           node.to_index,
                         );
-                        WorkflowChatAPI.trackEvent({
-                          event_type: "node_add_to_canvas",
-                          message_type: "node",
-                          message_id: response.message_id,
-                          data: {
-                            node_name: node.name,
-                          },
-                        });
                       }
                     }}
                   >
@@ -166,15 +157,6 @@ export function NodeSearch({
                                                      border border-gray-900 hover:bg-gray-100 
                                                      transition-colors text-[10px] flex items-center gap-1"
                       onClick={() => {
-                        WorkflowChatAPI.trackEvent({
-                          event_type: "node_download",
-                          message_type: "node",
-                          message_id: response.message_id,
-                          data: {
-                            node_name: node.name,
-                            github_url: node.github_url,
-                          },
-                        });
                       }}
                     >
                       <svg
@@ -200,14 +182,6 @@ export function NodeSearch({
                       className="px-2 py-1 bg-gray-100 text-gray-500 rounded-md
                                                      border border-gray-300 text-[10px] flex items-center gap-1"
                       onClick={() => {
-                        WorkflowChatAPI.trackEvent({
-                          event_type: "node_search",
-                          message_type: "node",
-                          message_id: response.message_id,
-                          data: {
-                            node_name: node.name,
-                          },
-                        });
                       }}
                     >
                       <svg

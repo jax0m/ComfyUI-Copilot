@@ -37,7 +37,6 @@ import { config } from "../config";
 import { mergeByKeyCombine } from "../utils/tools";
 import useLanguage from "../hooks/useLanguage";
 import StartLink from "../components/ui/StartLink";
-import StartPopView from "../components/ui/StartPopView";
 import {
   LocalStorageKeys,
   setLocalStorage,
@@ -60,103 +59,6 @@ const enum DispatchEventType {
   DOWNSTREAM_NODES = "DownstreamNodes",
 }
 
-// 优化公告组件样式 - 更加美观和专业，支持Markdown
-const Announcement = ({
-  message,
-  onClose,
-}: {
-  message: string;
-  onClose: () => void;
-}) => {
-  if (!message) return null;
-
-  return (
-    <div
-      className="bg-gradient-to-r from-gray-50 to-gray-100 
-            border border-gray-300 px-2 py-1 mt-2 ml-2 mr-2 relative shadow-sm rounded-sm"
-    >
-      <div className="flex items-center">
-        <div className="flex-shrink-0 mr-1">
-          <svg
-            className="w-3.5 h-3.5 text-gray-700"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clipRule="evenodd"
-            ></path>
-          </svg>
-        </div>
-        <div
-          className="text-gray-700 font-medium leading-relaxed pr-6 markdown-content"
-          style={{ fontSize: "11px" }}
-        >
-          <MemoizedReactMarkdown
-            rehypePlugins={[
-              [
-                rehypeExternalLinks,
-                { target: "_blank", rel: ["noopener", "noreferrer"] },
-              ],
-            ]}
-            remarkPlugins={[remarkGfm]}
-            className="prose !text-[11px] prose-a:text-gray-700 prose-a:underline prose-a:font-medium hover:prose-a:text-gray-800"
-            components={{
-              a: ({ node, ...props }) => (
-                <a
-                  {...props}
-                  className="text-gray-700 underline hover:text-gray-800 transition-colors"
-                  style={{ fontSize: "11px" }}
-                />
-              ),
-              p: ({ children }) => (
-                <span className="inline" style={{ fontSize: "11px" }}>
-                  {children}
-                </span>
-              ),
-              // Add explicit styling for all text elements
-              span: ({ children }) => (
-                <span style={{ fontSize: "11px" }}>{children}</span>
-              ),
-              li: ({ children }) => (
-                <li style={{ fontSize: "11px" }}>{children}</li>
-              ),
-              ul: ({ children }) => (
-                <ul style={{ fontSize: "11px" }}>{children}</ul>
-              ),
-              ol: ({ children }) => (
-                <ol style={{ fontSize: "11px" }}>{children}</ol>
-              ),
-            }}
-          >
-            {message}
-          </MemoizedReactMarkdown>
-        </div>
-      </div>
-      <button
-        onClick={onClose}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-700 hover:text-gray-800 transition-colors p-1 rounded-full hover:bg-gray-800"
-        aria-label="Close announcement"
-      >
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-    </div>
-  );
-};
 
 // Parameter Debug Tab Component
 const ParameterDebugTab = () => {
@@ -237,8 +139,6 @@ export default function WorkflowChat({
   const [height, setHeight] = useState<number>(window.innerHeight);
   const [topPosition, setTopPosition] = useState<number>(0);
   // 添加公告状态
-  const [announcement, setAnnouncement] = useState<string>("");
-  const [showAnnouncement, setShowAnnouncement] = useState<boolean>(false);
   // 添加 AbortController 引用
   // const abortControllerRef = useRef<AbortController | null>(null);
   const currentSelectedNode = useRef<any>(selectedNode);
@@ -660,7 +560,7 @@ export default function WorkflowChat({
   };
 
   const avatar = (name?: string) => {
-    return `https://ui-avatars.com/api/?name=${name || "User"}&background=random`;
+    return `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none"%3E%3Ccircle cx="20" cy="20" r="20" fill="%2394A3B8"/%3E%3Ctext x="20" y="25" text-anchor="middle" fill="white" font-size="16" font-family="Arial"%3E${(name || "U")[0].toUpperCase()}%3C/text%3E%3C/svg%3E`;
   };
 
   const handleClose = () => {
@@ -929,38 +829,6 @@ export default function WorkflowChat({
     }
   }, [triggerUsage, activeTab]);
 
-  // 获取公告内容
-  useEffect(() => {
-    if (!visible || activeTab !== "chat") return;
-
-    const fetchAnnouncement = async () => {
-      try {
-        // 检查今天是否已经显示过公告
-        const today = new Date().toDateString();
-        const lastShownDate = localStorage.getItem("announcementLastShownDate");
-
-        // 如果今天没有显示过公告，则显示
-        if (lastShownDate !== today) {
-          const message = await WorkflowChatAPI.fetchAnnouncement();
-          if (message && message.trim() !== "") {
-            setAnnouncement(message);
-            setShowAnnouncement(true);
-            // 记录今天的日期
-            localStorage.setItem("announcementLastShownDate", today);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching announcement:", error);
-      }
-    };
-
-    fetchAnnouncement();
-  }, [visible, activeTab]);
-
-  // 关闭公告
-  const handleCloseAnnouncement = () => {
-    setShowAnnouncement(false);
-  };
 
   // Handle tab change
   const handleTabChange = (tab: TabType) => {
@@ -1013,14 +881,6 @@ export default function WorkflowChat({
             GenLab
           </TabButton>
         </div>
-
-        {/* 将公告移到 ChatHeader 下方和Tab导航下方 */}
-        {showAnnouncement && announcement && activeTab === "chat" && (
-          <Announcement
-            message={announcement}
-            onClose={handleCloseAnnouncement}
-          />
-        )}
 
         {/* Tab content - Both tabs are mounted but only the active one is displayed */}
         {/* <div 
@@ -1091,7 +951,6 @@ export default function WorkflowChat({
           <ParameterDebugTab />
         </div>
       </div>
-      <StartPopView />
-    </div>
+          </div>
   );
 }

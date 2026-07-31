@@ -5,7 +5,6 @@ import rehypeKatex from "rehype-katex";
 import rehypeExternalLinks from "rehype-external-links";
 import { useMemo, useState } from "react";
 import { ChatResponse } from "../../types/types";
-import { WorkflowChatAPI } from "../../apis/workflowChatApi";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 
 interface IProps {
@@ -172,15 +171,6 @@ const Markdown = ({ response, specialClass }: IProps) => {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => {
-                WorkflowChatAPI.trackEvent({
-                  event_type: "markdown_link_click",
-                  message_type: messageType,
-                  message_id: messageId,
-                  data: {
-                    link_url: href,
-                    link_text: children,
-                  },
-                });
               }}
             >
               {children}

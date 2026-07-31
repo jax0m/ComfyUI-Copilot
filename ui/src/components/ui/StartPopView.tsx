@@ -30,41 +30,8 @@ const TIME_MAP = {
 };
 
 const StartPopView = () => {
-  const { startpopview_title, startpopview_join } = useLanguage();
-
-  const [showModal, setShowModal] = useState<boolean>(false);
-
-  const handleClickStar = () => {
-    setShowModal(!showModal);
-  };
-
-  const handleClickJoin = () => {
-    window.open(github_url, "_blank");
-    setShowModal(false);
-  };
-
-  const checkTime = (key: TIME_KEY) => {
-    const { name, offset } = TIME_MAP[key];
-    const currentTime = new Date().getTime();
-    const time = getLocalStorage(name);
-    if (!time || (!!Number(time) && currentTime - Number(time) > offset)) {
-      setLocalStorage(name, currentTime.toString());
-      setShowModal(true);
-    }
-  };
-
-  useEffect(() => {
-    checkTime(TIME_KEY.AUTO);
-
-    const handleClickAccept = () => {
-      checkTime(TIME_KEY.ACCEPT);
-    };
-
-    window.addEventListener(ACCEPT_EVENT, handleClickAccept);
-
-    return () => {
-      window.removeEventListener(ACCEPT_EVENT, handleClickAccept);
-    };
+  return null;
+};;
   }, []);
 
   return (
