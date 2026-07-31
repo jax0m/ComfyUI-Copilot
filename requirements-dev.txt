@@ -1,0 +1,16 @@
+# Development dependencies for ComfyUI-Copilot
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+
+# Linting / formatting
+ruff>=0.1.0
+pre-commit>=3.0.0
+
+# Tracing / observability (optional)
+langsmith>=0.4.0
+
+# MCP CLI tools (optional)
+fastmcp
