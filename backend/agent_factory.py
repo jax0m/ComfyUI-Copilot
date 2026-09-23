@@ -23,6 +23,7 @@ except Exception:
     )
 from dotenv import dotenv_values
 from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url, is_configured, TRACING_ENABLED
+from .utils.settings_storage import get_setting
 from openai import AsyncOpenAI
 
 
@@ -61,9 +62,20 @@ def create_agent(**kwargs) -> Agent:
         default_headers["X-Session-ID"] = session_id
 
     # Determine base URL and API key
+    # Resolution order: request config > persistent settings > environment variables > default
     base_url = LLM_DEFAULT_BASE_URL
     api_key = get_comfyui_copilot_api_key() or ""
 
+    # Check persistent settings
+    persistent_base_url = get_setting("openai_base_url")
+    persistent_api_key = get_setting("openai_api_key")
+    
+    if persistent_base_url and is_configured(persistent_base_url):
+        base_url = persistent_base_url
+    if persistent_api_key:
+        api_key = persistent_api_key
+
+    # Request config takes precedence over persistent settings
     if config:
         if config.get("openai_base_url") and config.get("openai_base_url") != "":
             base_url = config.get("openai_base_url")

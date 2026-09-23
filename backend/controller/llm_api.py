@@ -13,6 +13,7 @@ import json
 from typing import List, Dict, Any
 from aiohttp import web
 from ..utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, OPENAI_API_KEY, OPENAI_BASE_URL, TENANT_ID, is_lmstudio_url
+from ..utils.settings_storage import load_settings, save_settings, get_setting, set_setting
 import server
 import requests
 from ..utils.logger import log
@@ -145,3 +146,65 @@ async def verify_openai_key(req):
             "data": False, 
             "message": error_message
         })
+
+
+@server.PromptServer.instance.routes.get("/api/copilot/settings")
+async def get_settings(request):
+    """
+    Get all persistent settings.
+    
+    Returns:
+        JSON response with all settings
+    """
+    try:
+        settings = load_settings()
+        return web.json_response({
+            "success": True,
+            "settings": settings
+        })
+    except Exception as e:
+        log.error(f"Error loading settings: {str(e)}")
+        return web.json_response({
+            "success": False,
+            "error": str(e)
+        }, status=500)
+
+
+@server.PromptServer.instance.routes.post("/api/copilot/settings")
+async def update_settings(request):
+    """
+    Update persistent settings.
+    
+    Request body:
+        JSON object with settings to update
+        e.g., {"openai_base_url": "http://localhost:1234/v1", "openai_api_key": "key"}
+    
+    Returns:
+        JSON response with success status and updated settings
+    """
+    try:
+        body = await request.json()
+        
+        if not isinstance(body, dict):
+            return web.json_response({
+                "success": False,
+                "error": "Request body must be a JSON object"
+            }, status=400)
+        
+        # Update settings
+        current_settings = load_settings()
+        current_settings.update(body)
+        save_settings(current_settings)
+        
+        log.info(f"Settings updated: {list(body.keys())}")
+        
+        return web.json_response({
+            "success": True,
+            "settings": current_settings
+        })
+    except Exception as e:
+        log.error(f"Error updating settings: {str(e)}")
+        return web.json_response({
+            "success": False,
+            "error": str(e)
+        }, status=500)
