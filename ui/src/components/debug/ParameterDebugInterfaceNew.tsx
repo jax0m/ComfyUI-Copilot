@@ -13,6 +13,7 @@ import { AIWritingModal } from './modals/AIWritingModal';
 import { ImageModal } from './modals/ImageModal';
 import { generateDynamicParams, generateParameterCombinations } from './utils/parameterUtils';
 import { generateUUID } from '../../utils/uuid';
+import { PLACEHOLDER_IMAGE } from '../../utils/placeholders';
 // Import history components
 import { HistoryScreen } from './screens/HistoryScreen';
 import { HistoryItemScreen } from './screens/HistoryItemScreen';
@@ -137,7 +138,7 @@ export const ParameterDebugInterface: React.FC<ParameterDebugInterfaceProps> = (
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(() => {
     // Create an array of placeholder image URLs
     return Array(12).fill(null).map((_, i) => ({
-      url: `https://source.unsplash.com/random/300x300?sig=${Math.random()}`,
+      url: PLACEHOLDER_IMAGE,
       params: {
         step: i % 3 === 0 ? 5 : i % 3 === 1 ? 10 : 15,
         sampler_name: 'euler',

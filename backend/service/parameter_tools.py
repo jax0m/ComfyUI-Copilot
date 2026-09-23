@@ -3,6 +3,7 @@ import json
 from agents.tool import function_tool
 from ..utils.modelscope_gateway import ModelScopeGateway
 from ..utils.request_context import get_session_id
+from ..utils.globals import MODELSCOPE_ENABLED
 
 from ..utils.comfy_gateway import get_object_info_by_class
 from ..dao.workflow_table import get_workflow_data, save_workflow_data
@@ -310,6 +311,10 @@ async def get_model_files(model_type: str = "checkpoints") -> str:
 
 def suggest_model_download_by_modelscope(model_name_keyword: str) -> str:
     """建议下载缺失的模型，执行一次即可结束流程返回结果"""
+    # ModelScope access is disabled by default for privacy
+    if not MODELSCOPE_ENABLED:
+        return {"data": None, "message": "ModelScope search is disabled"}
+    
     modelscope_gateway = ModelScopeGateway()
     return modelscope_gateway.suggest(name=model_name_keyword)
 

@@ -99,11 +99,29 @@ def set_comfyui_copilot_api_key(api_key: str) -> None:
     _global_state.set('comfyui_copilot_api_key', api_key)
 
 
-BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "https://comfyui-copilot-server.onrender.com")
+# Configuration defaults
+# Use placeholder values that indicate "not configured" rather than defaulting to
+# remote servers. This ensures no data is sent offsite unless explicitly configured.
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "__NOT_CONFIGURED__")
 LMSTUDIO_DEFAULT_BASE_URL = "http://localhost:1234/v1"
-WORKFLOW_MODEL_NAME = os.getenv("WORKFLOW_MODEL_NAME", "us.anthropic.claude-sonnet-4-20250514-v1:0")
+WORKFLOW_MODEL_NAME = os.getenv("WORKFLOW_MODEL_NAME", "")
 # WORKFLOW_MODEL_NAME = "gpt-5-2025-08-07-GlobalStandard"
-LLM_DEFAULT_BASE_URL = "https://comfyui-copilot-server.onrender.com/v1"
+LLM_DEFAULT_BASE_URL = os.getenv("CC_OPENAI_BASE_URL", "__NOT_CONFIGURED__")
+
+# Search configuration (for web search tool)
+SEARCH_ENABLED = os.getenv("SEARCH_ENABLED", "false").lower() == "true"
+SEARCH_URL = os.getenv("SEARCH_URL", "")  # e.g., http://localhost:8080/search for SearXNG
+
+# ModelScope configuration (for model search/download)
+MODELSCOPE_ENABLED = os.getenv("MODELSCOPE_ENABLED", "false").lower() == "true"
+
+# Tracing configuration
+TRACING_ENABLED = os.getenv("CC_TRACING_ENABLED", "false").lower() == "true"
+
+
+def is_configured(url: str) -> bool:
+    """Check if a URL is actually configured (not a placeholder or empty)."""
+    return url is not None and url != "" and url != "__NOT_CONFIGURED__"
 
 # LLM-related env defaults (used as fallback when request config does not provide values)
 OPENAI_API_KEY = os.getenv("CC_OPENAI_API_KEY") or None

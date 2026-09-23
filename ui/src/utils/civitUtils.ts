@@ -4,12 +4,33 @@
 import { userSettingsTable } from "../db-tables/WorkspaceDB";
 
 const CIVIT_API_KEY_STORAGE_KEY = "WORKSPACE_CIVIT_API_KEY_STORAGE_KEY";
+const CIVIT_ENABLED_KEY = "civitaiEnabled";
+
 export function getCivitApiKey() {
   return localStorage.getItem(CIVIT_API_KEY_STORAGE_KEY);
 }
 
 export function setCivitApiKey(apiKey: string) {
   localStorage.setItem(CIVIT_API_KEY_STORAGE_KEY, apiKey);
+}
+
+/**
+ * Check if CivitAI API access is enabled.
+ * Disabled by default for privacy. User must explicitly enable it.
+ */
+export function isCivitaiEnabled(): boolean {
+  return localStorage.getItem(CIVIT_ENABLED_KEY) === 'true';
+}
+
+/**
+ * Enable or disable CivitAI API access.
+ */
+export function setCivitaiEnabled(enabled: boolean): void {
+  if (enabled) {
+    localStorage.setItem(CIVIT_ENABLED_KEY, 'true');
+  } else {
+    localStorage.removeItem(CIVIT_ENABLED_KEY);
+  }
 }
 
 export function getCivitModelDownloadUrl(modelVersionID: string) {
@@ -53,6 +74,11 @@ export async function fetchCivitModelFromHashKey(filehash: string): Promise<{
   civitModelVersionID?: string;
   imageUrl?: string;
 }> {
+  // CivitAI API access is disabled by default for privacy
+  if (!isCivitaiEnabled()) {
+    return {};
+  }
+
   try {
     const url = `https://civitai.com/api/v1/model-versions/by-hash/${filehash}`;
     const resp = await fetch(url);

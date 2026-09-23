@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import identity
 
-from ..utils.globals import set_language, apply_llm_env_defaults
+from ..utils.globals import set_language, apply_llm_env_defaults, MODELSCOPE_ENABLED
 from ..utils.auth_utils import extract_and_store_api_key
 import server
 from aiohttp import web
@@ -1023,6 +1023,13 @@ async def model_suggests(request):
             return web.json_response({
                 "success": False,
                 "message": "Missing required parameter: keyword"
+            })
+
+        # ModelScope access is disabled by default for privacy
+        if not MODELSCOPE_ENABLED:
+            return web.json_response({
+                "success": False,
+                "message": "ModelScope search is disabled. Enable via MODELSCOPE_ENABLED=true environment variable."
             })
 
         # 创建ModelScope网关实例

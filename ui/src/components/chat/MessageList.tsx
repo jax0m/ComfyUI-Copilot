@@ -39,9 +39,7 @@ interface MessageListProps {
     isActive?: boolean;
 }
 
-const getAvatar = (name?: string) => {
-    return `https://ui-avatars.com/api/?name=${name || 'User'}&background=random`;
-};
+import { getAvatar } from '../../utils/avatar';
 
 const LazyAIMessage = lazy(() => import('./messages/AIMessage').then(m => ({ default: m.AIMessage })));
 const LazyUserMessage = lazy(() => import('./messages/UserMessage').then(m => ({ default: m.UserMessage })));

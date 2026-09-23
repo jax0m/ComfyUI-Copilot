@@ -15,6 +15,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { fetchRsaPublicKey, verifyOpenAiApiKey } from '../../utils/crypto';
+import { isCivitaiEnabled, setCivitaiEnabled } from '../../utils/civitUtils';
 import Input from '../ui/Input';
 import CollapsibleCard from '../ui/CollapsibleCard';
 import { config } from '../../config';
@@ -68,6 +69,13 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     const [workflowLLMModels, setWorkflowLLMModels] = useState<string[]>([]);
     const [workflowLLMModelsLoading, setWorkflowLLMModelsLoading] = useState(false);
 
+    // Privacy & Data configuration
+    const [telemetryEnabled, setTelemetryEnabled] = useState(false);
+    const [searchEnabled, setSearchEnabled] = useState(false);
+    const [searchUrl, setSearchUrl] = useState('');
+    const [mcpServerUrl, setMcpServerUrl] = useState('');
+    const [civitaiEnabled, setCivitaiEnabledState] = useState(false);
+
     const [activeTab, setActiveTab] = useState<string>(TAB_LIST[0]);
     const [tabStrMap, setTabStrMap] = useState<Record<string, Record<string, string>> | null>(null);
 
@@ -109,6 +117,32 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
         }
         if (savedWorkflowLLMModel) {
             setWorkflowLLMModel(savedWorkflowLLMModel);
+        }
+
+        // Load privacy settings
+        const savedTelemetryEnabled = localStorage.getItem('telemetryEnabled');
+        if (savedTelemetryEnabled === 'true') {
+            setTelemetryEnabled(true);
+        }
+
+        const savedSearchEnabled = localStorage.getItem('searchEnabled');
+        if (savedSearchEnabled === 'true') {
+            setSearchEnabled(true);
+        }
+
+        const savedSearchUrl = localStorage.getItem('searchUrl');
+        if (savedSearchUrl) {
+            setSearchUrl(savedSearchUrl);
+        }
+
+        const savedMcpServerUrl = localStorage.getItem('mcpServerUrl');
+        if (savedMcpServerUrl) {
+            setMcpServerUrl(savedMcpServerUrl);
+        }
+
+        // Load CivitAI setting
+        if (isCivitaiEnabled()) {
+            setCivitaiEnabledState(true);
         }
         
         // Fetch RSA public key
@@ -317,6 +351,23 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
         } else {
             localStorage.removeItem('workflowLLMApiKey');
         }
+
+        // Save privacy settings
+        localStorage.setItem('telemetryEnabled', telemetryEnabled ? 'true' : 'false');
+        localStorage.setItem('searchEnabled', searchEnabled ? 'true' : 'false');
+        if (searchUrl.trim()) {
+            localStorage.setItem('searchUrl', searchUrl.trim());
+        } else {
+            localStorage.removeItem('searchUrl');
+        }
+        if (mcpServerUrl.trim()) {
+            localStorage.setItem('mcpServerUrl', mcpServerUrl.trim());
+        } else {
+            localStorage.removeItem('mcpServerUrl');
+        }
+
+        // Save CivitAI setting
+        setCivitaiEnabled(civitaiEnabled);
         
         // Call configuration updated callback if OpenAI config has changed
         if ((hasOpenaiConfigChanged || hasWorkflowConfigChanged) && onConfigurationUpdated) {
@@ -683,6 +734,105 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
                         </div>
                     </div>
                 </CollapsibleCard>
+                {/* Privacy & Data Configuration */}
+                <CollapsibleCard 
+                    title={<h3 className="text-sm text-gray-900 dark:text-white font-medium">Privacy & Data</h3>}
+                    className='mb-4'
+                >
+                    <div>
+                        {/* Telemetry Toggle */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Send usage analytics
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={telemetryEnabled}
+                                    onChange={(e) => setTelemetryEnabled(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                When enabled, sends anonymous usage data to improve the plugin. Disabled by default.
+                            </p>
+                        </div>
+
+                        {/* Web Search Configuration */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer mb-2">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Enable web search
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={searchEnabled}
+                                    onChange={(e) => setSearchEnabled(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <input
+                                type="text"
+                                value={searchUrl}
+                                onChange={(e) => setSearchUrl(e.target.value)}
+                                placeholder="Search URL (e.g., http://localhost:8080/search for SearXNG)"
+                                disabled={!searchEnabled}
+                                className={`w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg text-xs mb-1
+                                ${searchEnabled ? 'bg-gray-50 dark:bg-gray-700' : 'bg-gray-100 dark:bg-gray-800 opacity-50'}
+                                text-gray-900 dark:text-white
+                                placeholder-gray-500 dark:placeholder-gray-400
+                                focus:border-blue-500 dark:focus:border-blue-400 
+                                focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20
+                                focus:outline-none disabled:cursor-not-allowed`}
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Leave empty to disable web search. Compatible with SearXNG JSON API.
+                            </p>
+                        </div>
+
+                        {/* MCP Server Configuration */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                MCP Server URL (optional)
+                            </label>
+                            <input
+                                type="text"
+                                value={mcpServerUrl}
+                                onChange={(e) => setMcpServerUrl(e.target.value)}
+                                placeholder="Leave empty to disable MCP tools"
+                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg text-xs
+                                bg-gray-50 dark:bg-gray-700 
+                                text-gray-900 dark:text-white
+                                placeholder-gray-500 dark:placeholder-gray-400
+                                focus:border-blue-500 dark:focus:border-blue-400 
+                                focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20
+                                focus:outline-none"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                MCP server for workflow search and generation tools. Disabled by default for local-only operation.
+                            </p>
+                        </div>
+
+                        {/* CivitAI Access */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Allow CivitAI model lookups
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={civitaiEnabled}
+                                    onChange={(e) => setCivitaiEnabledState(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                When enabled, sends model file hashes to CivitAI for metadata and preview images. Disabled by default.
+                            </p>
+                        </div>
+                    </div>
+                </CollapsibleCard>
+
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3">
                     <button

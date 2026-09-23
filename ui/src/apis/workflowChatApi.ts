@@ -65,10 +65,20 @@ const checkAndSaveApiKey = (response: Response) => {
 
 
 
+// Check if telemetry is enabled (disabled by default for privacy)
+const isTelemetryEnabled = () => {
+  return localStorage.getItem('telemetryEnabled') === 'true';
+};
+
 export namespace WorkflowChatAPI {
   export async function trackEvent(
     request: TrackEventRequest
   ): Promise<void> {
+    // Telemetry is disabled by default. User must explicitly enable it.
+    if (!isTelemetryEnabled()) {
+      return Promise.resolve();
+    }
+    
     try {
       // Use non-blocking fetch to avoid interrupting the main flow
       const apiKey = getApiKey();

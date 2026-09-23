@@ -7,7 +7,7 @@ FilePath: /comfyui_copilot/backend/service/mcp-client.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
 from ..service.workflow_rewrite_tools import get_current_workflow
-from ..utils.globals import BACKEND_BASE_URL, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN
+from ..utils.globals import BACKEND_BASE_URL, SEARCH_URL, SEARCH_ENABLED, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN, TRACING_ENABLED
 from .. import core
 import asyncio
 import os
@@ -128,9 +128,15 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
             client_session_timeout_seconds=300.0
         )
         
+        # Search server URL is configurable (e.g., SearXNG instance)
+        # Defaults to disabled for local-only operation
+        search_url = SEARCH_URL if SEARCH_ENABLED else ""
+        if not search_url:
+            search_url = "http://localhost:0/search-disabled"
+        
         bing_server = MCPServerSse(
             params= {
-                "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
+                "url": search_url,
                 "timeout": 300.0,
                 "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
             },
@@ -309,7 +315,8 @@ You must adhere to the following constraints to complete the task:
 
             from agents import Agent, Runner, set_trace_processors, set_tracing_disabled, set_default_openai_api
             # from langsmith.wrappers import OpenAIAgentsTracingProcessor
-            set_tracing_disabled(False)
+            # Tracing is disabled by default for privacy. Enable via CC_TRACING_ENABLED=true
+            set_tracing_disabled(not TRACING_ENABLED)
             set_default_openai_api("chat_completions")
             # set_trace_processors([OpenAIAgentsTracingProcessor()])
 

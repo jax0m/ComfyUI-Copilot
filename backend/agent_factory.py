@@ -22,7 +22,7 @@ except Exception:
         "Alternatively, keep both by setting COMFYUI_COPILOT_PREFER_OPENAI_AGENTS=1 so this plugin prefers openai-agents."
     )
 from dotenv import dotenv_values
-from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url
+from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url, TRACING_ENABLED
 from openai import AsyncOpenAI
 
 
@@ -47,7 +47,8 @@ import asyncio
 # load_env_config()
 
 set_default_openai_api("chat_completions")
-set_tracing_disabled(False)
+# Tracing is disabled by default for privacy. Enable via CC_TRACING_ENABLED=true
+set_tracing_disabled(not TRACING_ENABLED)
 
 
 def create_agent(**kwargs) -> Agent:
