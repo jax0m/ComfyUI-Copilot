@@ -1,8 +1,8 @@
 import { useChatContext } from '../../../context/ChatContext';
 import useLanguage from '../../../hooks/useLanguage';
+import useDarkMode from '../../../hooks/useDarkTheme';
 import { generateUUID } from '../../../utils/uuid';
 import BeautifyCard from '../../ui/BeautifyCard';
-import StartLink from '../../ui/StartLink';
 import { BaseMessage } from './BaseMessage';
 
 interface IProps { 
@@ -25,10 +25,10 @@ const ICONS = [
 
 const Showcase: React.FC<IProps> = ({ scrollRef }) => {
   const { dispatch, showcasIng } = useChatContext();
+  const isDark = useDarkMode();
 
   const {
     showcase_title,
-    showcase_subtitle,
     showcase_list
   } = useLanguage()
   
@@ -87,13 +87,8 @@ const Showcase: React.FC<IProps> = ({ scrollRef }) => {
 
   return <BaseMessage name='showcase'>
     <div className='bg-gray-100 p-4 rounded-lg'>
-      <div className='text-xl text-gray-900 font-extrabold text-center mb-2'>
+      <div className='text-xl text-gray-900 dark:text-gray-100 font-extrabold text-center mb-4'>
         {showcase_title}
-      </div>
-      <div className='w-full mb-4 flex justify-center items-center'>
-        <StartLink>
-          {showcase_subtitle}
-        </StartLink>
       </div>
       {
         showcase_list?.map((item, index) => <div 
@@ -128,7 +123,7 @@ const Showcase: React.FC<IProps> = ({ scrollRef }) => {
             <div className='text-[#4fabdb]'>
               {ICONS[index]}
             </div>
-            <div className='flex-1 text-sm text-gray-700 font-normal ml-4'>
+            <div className={`flex-1 text-sm font-normal ml-4 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               {item.name}
             </div>
           </BeautifyCard>
