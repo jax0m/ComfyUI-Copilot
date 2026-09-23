@@ -27,6 +27,9 @@ const Showcase: React.FC<IProps> = ({ scrollRef }) => {
   const { dispatch, showcasIng } = useChatContext();
   const isDark = useDarkMode();
 
+  // Debug: log the isDark value
+  console.log('Showcase isDark:', isDark);
+
   const {
     showcase_title,
     showcase_list
@@ -87,6 +90,8 @@ const Showcase: React.FC<IProps> = ({ scrollRef }) => {
 
   return <BaseMessage name='showcase'>
     <div className='bg-gray-100 p-4 rounded-lg'>
+      {/* Debug indicator: red dot = light mode, green dot = dark mode */}
+      <div className={`w-3 h-3 rounded-full mx-auto mb-2 ${isDark ? 'bg-green-500' : 'bg-red-500'}`}></div>
       <div className='text-xl text-gray-900 dark:text-gray-100 font-extrabold text-center mb-4'>
         {showcase_title}
       </div>
