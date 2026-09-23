@@ -95,29 +95,42 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     useEffect(() => {
         setApiKey(initialApiKey);
         
-        // Load OpenAI configuration from localStorage
-        const savedOpenaiApiKey = localStorage.getItem('openaiApiKey');
-        const savedOpenaiBaseUrl = localStorage.getItem('openaiBaseUrl');
-        const savedWorkflowLLMApiKey = localStorage.getItem('workflowLLMApiKey');
-        const savedWorkflowLLMBaseUrl = localStorage.getItem('workflowLLMBaseUrl');
-        const savedWorkflowLLMModel = localStorage.getItem('workflowLLMModel');
-        
-        if (savedOpenaiApiKey) {
-            setOpenaiApiKey(savedOpenaiApiKey);
-        }
-        
-        if (savedOpenaiBaseUrl) {
-            setOpenaiBaseUrl(savedOpenaiBaseUrl);
-        }
-        if (savedWorkflowLLMApiKey) {
-            setWorkflowLLMApiKey(savedWorkflowLLMApiKey);
-        }
-        if (savedWorkflowLLMBaseUrl) {
-            setWorkflowLLMBaseUrl(savedWorkflowLLMBaseUrl);
-        }
-        if (savedWorkflowLLMModel) {
-            setWorkflowLLMModel(savedWorkflowLLMModel);
-        }
+        // Load settings from persistent storage (survives reinstalls)
+        // Fall back to localStorage for backward compatibility
+        const loadSettings = async () => {
+            let persistentSettings: Record<string, any> = {};
+            try {
+                persistentSettings = await WorkflowChatAPI.getPersistentSettings();
+            } catch (error) {
+                console.warn('Failed to load persistent settings, falling back to localStorage:', error);
+            }
+
+            // Load OpenAI configuration
+            const savedOpenaiApiKey = persistentSettings.openai_api_key || localStorage.getItem('openaiApiKey');
+            const savedOpenaiBaseUrl = persistentSettings.openai_base_url || localStorage.getItem('openaiBaseUrl');
+            const savedWorkflowLLMApiKey = persistentSettings.workflow_llm_api_key || localStorage.getItem('workflowLLMApiKey');
+            const savedWorkflowLLMBaseUrl = persistentSettings.workflow_llm_base_url || localStorage.getItem('workflowLLMBaseUrl');
+            const savedWorkflowLLMModel = persistentSettings.workflow_llm_model || localStorage.getItem('workflowLLMModel');
+            
+            if (savedOpenaiApiKey) {
+                setOpenaiApiKey(savedOpenaiApiKey);
+            }
+            
+            if (savedOpenaiBaseUrl) {
+                setOpenaiBaseUrl(savedOpenaiBaseUrl);
+            }
+            if (savedWorkflowLLMApiKey) {
+                setWorkflowLLMApiKey(savedWorkflowLLMApiKey);
+            }
+            if (savedWorkflowLLMBaseUrl) {
+                setWorkflowLLMBaseUrl(savedWorkflowLLMBaseUrl);
+            }
+            if (savedWorkflowLLMModel) {
+                setWorkflowLLMModel(savedWorkflowLLMModel);
+            }
+        };
+
+        loadSettings();
 
         // Load privacy settings
         const savedTelemetryEnabled = localStorage.getItem('telemetryEnabled');
@@ -303,7 +316,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
         }
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Save the main API key
         onSave(apiKey);
         
@@ -350,6 +363,31 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
             localStorage.setItem('workflowLLMApiKey', workflowLLMApiKey);
         } else {
             localStorage.removeItem('workflowLLMApiKey');
+        }
+
+        // Save to persistent storage (survives reinstalls)
+        try {
+            const persistentSettings: Record<string, any> = {};
+            if (openaiBaseUrl.trim()) {
+                persistentSettings.openai_base_url = openaiBaseUrl.trim();
+            }
+            if (openaiApiKey.trim()) {
+                persistentSettings.openai_api_key = openaiApiKey.trim();
+            }
+            if (workflowLLMBaseUrl.trim()) {
+                persistentSettings.workflow_llm_base_url = workflowLLMBaseUrl.trim();
+            }
+            if (workflowLLMApiKey.trim()) {
+                persistentSettings.workflow_llm_api_key = workflowLLMApiKey.trim();
+            }
+            if (workflowLLMModel.trim()) {
+                persistentSettings.workflow_llm_model = workflowLLMModel.trim();
+            }
+            if (Object.keys(persistentSettings).length > 0) {
+                await WorkflowChatAPI.savePersistentSettings(persistentSettings);
+            }
+        } catch (error) {
+            console.warn('Failed to save persistent settings:', error);
         }
 
         // Save privacy settings
