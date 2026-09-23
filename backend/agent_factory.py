@@ -22,7 +22,7 @@ except Exception:
         "Alternatively, keep both by setting COMFYUI_COPILOT_PREFER_OPENAI_AGENTS=1 so this plugin prefers openai-agents."
     )
 from dotenv import dotenv_values
-from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url, TRACING_ENABLED
+from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url, is_configured, TRACING_ENABLED
 from openai import AsyncOpenAI
 
 
@@ -69,6 +69,14 @@ def create_agent(**kwargs) -> Agent:
             base_url = config.get("openai_base_url")
         if config.get("openai_api_key") and config.get("openai_api_key") != "":
             api_key = config.get("openai_api_key")
+
+    # Check if the LLM is configured
+    if not is_configured(base_url):
+        raise ValueError(
+            "LLM is not configured. Please set the OpenAI Base URL in the plugin settings "
+            "(click the gear icon in the chat panel) or set the CC_OPENAI_BASE_URL environment variable. "
+            "For local models, use http://localhost:1234/v1 (LMStudio default)."
+        )
 
     # Check if this is LMStudio and adjust API key handling
     is_lmstudio = is_lmstudio_url(base_url)
