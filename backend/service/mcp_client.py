@@ -7,7 +7,7 @@ FilePath: /comfyui_copilot/backend/service/mcp-client.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
 from ..service.workflow_rewrite_tools import get_current_workflow
-from ..utils.globals import BACKEND_BASE_URL, SEARCH_URL, SEARCH_ENABLED, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN, TRACING_ENABLED
+from ..utils.globals import BACKEND_BASE_URL, SEARCH_URL, SEARCH_ENABLED, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN, TRACING_ENABLED, is_configured
 from .. import core
 import asyncio
 import os
@@ -116,6 +116,31 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
         log.info(f"[MCP] Original messages count: {len(messages)}")
         messages = message_memory_optimize(session_id, messages)
         log.info(f"[MCP] Optimized messages count: {len(messages)}, messages: {messages}")
+        
+        # Check if MCP server is configured
+        mcp_configured = is_configured(BACKEND_BASE_URL)
+        
+        if not mcp_configured:
+            # MCP server is not configured - return a clear error message
+            # The chat feature requires the MCP server for workflow search/generation
+            error_message = (
+                "The MCP server is not configured. The chat feature requires an MCP server "
+                "for workflow search and generation.\n\n"
+                "To configure:\n"
+                "1. Set the BACKEND_BASE_URL environment variable to your MCP server URL\n"
+                "2. Or use the Debug Agent feature (which works without an MCP server)\n\n"
+                "For local-only operation without an MCP server, local implementations of "
+                "the workflow tools are planned for a future release."
+            )
+            log.warning("MCP server not configured, returning error message")
+            
+            # Yield the error message as the response
+            yield {
+                "text": error_message,
+                "ext": None,
+                "finished": True
+            }
+            return
         
         # Create MCP server instances
         mcp_server = MCPServerSse(
