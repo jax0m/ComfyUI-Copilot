@@ -14,7 +14,7 @@
 // Licensed under the MIT License.
 
 import { useEffect, useMemo, useState } from 'react';
-import { fetchRsaPublicKey, verifyOpenAiApiKey } from '../../utils/crypto';
+import { verifyOpenAiApiKey } from '../../utils/crypto';
 import { isCivitaiEnabled, setCivitaiEnabled } from '../../utils/civitUtils';
 import Input from '../ui/Input';
 import CollapsibleCard from '../ui/CollapsibleCard';
@@ -57,7 +57,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     const [showOpenaiApiKey, setShowOpenaiApiKey] = useState(false);
     const [verifyingKey, setVerifyingKey] = useState(false);
     const [verificationResult, setVerificationResult] = useState<{success: boolean, message: string} | null>(null);
-    const [rsaPublicKey, setRsaPublicKey] = useState<string | null>(null);
 
     // Workflow LLM configuration
     const [workflowLLMApiKey, setWorkflowLLMApiKey] = useState('');
@@ -158,23 +157,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
             setCivitaiEnabledState(true);
         }
         
-        // Fetch RSA public key
-        const fetchPublicKey = async () => {
-            try {
-                const savedPublicKey = localStorage.getItem('rsaPublicKey');
-                if (savedPublicKey) {
-                    setRsaPublicKey(savedPublicKey);
-                } else {
-                    const publicKey = await fetchRsaPublicKey();
-                    setRsaPublicKey(publicKey);
-                    localStorage.setItem('rsaPublicKey', publicKey);
-                }
-            } catch (error) {
-                console.error('Failed to fetch RSA public key:', error);
-            }
-        };
-        
-        fetchPublicKey();
+
     }, [initialApiKey]);
 
     const handleVerifyOpenAiKey = async () => {
@@ -188,14 +171,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
             setVerificationResult({
                 success: false,
                 message: 'Please enter an API key or use LMStudio URL (localhost:1234)'
-            });
-            return;
-        }
-        
-        if (!rsaPublicKey && !isLMStudio) {
-            setVerificationResult({
-                success: false,
-                message: 'RSA public key not available. Please try again later.'
             });
             return;
         }
