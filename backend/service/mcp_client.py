@@ -181,7 +181,7 @@ Respond in the language used by the user. Use markdown formatting with headings.
             from agents import Runner
             from agents.tracing import set_tracing_disabled
             from agents._config import set_default_openai_api
-            from agents.items import ResponseTextDeltaEvent
+            from openai.types.responses import ResponseTextDeltaEvent
             set_tracing_disabled(not TRACING_ENABLED)
             set_default_openai_api("chat_completions")
             
