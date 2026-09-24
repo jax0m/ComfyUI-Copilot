@@ -65,10 +65,20 @@ const checkAndSaveApiKey = (response: Response) => {
 
 
 
+// Check if telemetry is enabled (disabled by default for privacy)
+const isTelemetryEnabled = () => {
+  return localStorage.getItem('telemetryEnabled') === 'true';
+};
+
 export namespace WorkflowChatAPI {
   export async function trackEvent(
     request: TrackEventRequest
   ): Promise<void> {
+    // Telemetry is disabled by default. User must explicitly enable it.
+    if (!isTelemetryEnabled()) {
+      return Promise.resolve();
+    }
+    
     try {
       // Use non-blocking fetch to avoid interrupting the main flow
       const apiKey = getApiKey();
@@ -874,6 +884,47 @@ export namespace WorkflowChatAPI {
       return result.data;
     } catch (error) {
       console.error('Error saving workflow checkpoint before invoke:', error);
+      throw error;
+    }
+  }
+
+  // Persistent settings API (survives reinstalls)
+  export async function getPersistentSettings(): Promise<Record<string, any>> {
+    try {
+      const response = await fetch('/api/copilot/settings', {
+        method: 'GET',
+        headers: {
+          'trace-id': generateUUID(),
+        },
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load settings');
+      }
+      return result.settings || {};
+    } catch (error) {
+      console.error('Error loading persistent settings:', error);
+      return {};
+    }
+  }
+
+  export async function savePersistentSettings(settings: Record<string, any>): Promise<Record<string, any>> {
+    try {
+      const response = await fetch('/api/copilot/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'trace-id': generateUUID(),
+        },
+        body: JSON.stringify(settings),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save settings');
+      }
+      return result.settings || {};
+    } catch (error) {
+      console.error('Error saving persistent settings:', error);
       throw error;
     }
   }

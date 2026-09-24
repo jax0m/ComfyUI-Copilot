@@ -3,6 +3,7 @@
 
 import { generateUUID } from '../../../utils/uuid';
 import { clearStateFromLocalStorage } from './localStorageUtils';
+import { PLACEHOLDER_IMAGE } from '../../../utils/placeholders';
 import { WorkflowChatAPI } from '../../../apis/workflowChatApi';
 import { applyNodeParameters } from '../../../utils/graphUtils';
 
@@ -58,7 +59,7 @@ export const resetAllStates = (
   setTotalCount(12);
   setSelectedImageIndex(null);
   setGeneratedImages(Array(12).fill(null).map((_, i) => ({
-    url: `https://source.unsplash.com/random/300x300?sig=${Math.random()}`,
+    url: PLACEHOLDER_IMAGE,
     params: {
       step: i % 3 === 0 ? 5 : i % 3 === 1 ? 10 : 15,
       sampler_name: 'euler',

@@ -18,6 +18,7 @@ import { SelectedNodeInfo } from "../components/chat/SelectedNodeInfo";
 import { MessageList } from "../components/chat/MessageList";
 import { generateUUID } from "../utils/uuid";
 import { getInstalledNodes } from "../apis/comfyApiCustom";
+import { getAvatar } from "../utils/avatar";
 import React from "react";
 import { debounce } from "lodash";
 import { useChatContext } from '../context/ChatContext';
@@ -580,9 +581,7 @@ export default function WorkflowChat({ onClose, visible = true, triggerUsage = f
         }, 500)
     };
 
-    const avatar = (name?: string) => {
-        return `https://ui-avatars.com/api/?name=${name || 'User'}&background=random`;
-    }
+    const avatar = getAvatar;
 
     const handleClose = () => {
         onClose?.();

@@ -3,6 +3,7 @@
 
 import { WorkflowChatAPI } from '../../../apis/workflowChatApi';
 import { queuePrompt, getOutputImageByPromptId, getOnlyOneImageNode } from '../../../utils/queuePrompt';
+import { PLACEHOLDER_IMAGE } from '../../../utils/placeholders';
 import { generateDynamicParams } from './parameterUtils';
 import { saveHistoryItem } from './historyUtils';
 import { StateKey } from '../ParameterDebugInterfaceNew';
@@ -124,7 +125,7 @@ export const handleStartGeneration = async (
 
     // Create an array to track images and their parameters
     const newImages: any[] = Array(paramCombinations.length).fill(null).map((_, i) => ({
-      url: `https://source.unsplash.com/random/300x300?sig=${Math.random()}`, // Default placeholder
+      url: PLACEHOLDER_IMAGE, // Local placeholder (no external requests)
       params: generateDynamicParams(paramTestValues, i)
     }));
     

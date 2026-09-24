@@ -14,7 +14,8 @@
 // Licensed under the MIT License.
 
 import { useEffect, useMemo, useState } from 'react';
-import { fetchRsaPublicKey, verifyOpenAiApiKey } from '../../utils/crypto';
+import { verifyOpenAiApiKey } from '../../utils/crypto';
+import { isCivitaiEnabled, setCivitaiEnabled } from '../../utils/civitUtils';
 import Input from '../ui/Input';
 import CollapsibleCard from '../ui/CollapsibleCard';
 import { config } from '../../config';
@@ -56,7 +57,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     const [showOpenaiApiKey, setShowOpenaiApiKey] = useState(false);
     const [verifyingKey, setVerifyingKey] = useState(false);
     const [verificationResult, setVerificationResult] = useState<{success: boolean, message: string} | null>(null);
-    const [rsaPublicKey, setRsaPublicKey] = useState<string | null>(null);
 
     // Workflow LLM configuration
     const [workflowLLMApiKey, setWorkflowLLMApiKey] = useState('');
@@ -68,10 +68,19 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     const [workflowLLMModels, setWorkflowLLMModels] = useState<string[]>([]);
     const [workflowLLMModelsLoading, setWorkflowLLMModelsLoading] = useState(false);
 
+    // Privacy & Data configuration
+    const [telemetryEnabled, setTelemetryEnabled] = useState(false);
+    const [searchEnabled, setSearchEnabled] = useState(false);
+    const [searchUrl, setSearchUrl] = useState('');
+    const [mcpServerUrl, setMcpServerUrl] = useState('');
+    const [civitaiEnabled, setCivitaiEnabledState] = useState(false);
+
     const [activeTab, setActiveTab] = useState<string>(TAB_LIST[0]);
     const [tabStrMap, setTabStrMap] = useState<Record<string, Record<string, string>> | null>(null);
 
     const { apikeymodel_title } = useLanguage();
+    // Override the pandering title with a functional one
+    const modalTitle = 'API Configuration';
 
     useEffect(() => {
         const map: Record<string, Record<string, string>> = {}
@@ -87,47 +96,70 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     useEffect(() => {
         setApiKey(initialApiKey);
         
-        // Load OpenAI configuration from localStorage
-        const savedOpenaiApiKey = localStorage.getItem('openaiApiKey');
-        const savedOpenaiBaseUrl = localStorage.getItem('openaiBaseUrl');
-        const savedWorkflowLLMApiKey = localStorage.getItem('workflowLLMApiKey');
-        const savedWorkflowLLMBaseUrl = localStorage.getItem('workflowLLMBaseUrl');
-        const savedWorkflowLLMModel = localStorage.getItem('workflowLLMModel');
-        
-        if (savedOpenaiApiKey) {
-            setOpenaiApiKey(savedOpenaiApiKey);
-        }
-        
-        if (savedOpenaiBaseUrl) {
-            setOpenaiBaseUrl(savedOpenaiBaseUrl);
-        }
-        if (savedWorkflowLLMApiKey) {
-            setWorkflowLLMApiKey(savedWorkflowLLMApiKey);
-        }
-        if (savedWorkflowLLMBaseUrl) {
-            setWorkflowLLMBaseUrl(savedWorkflowLLMBaseUrl);
-        }
-        if (savedWorkflowLLMModel) {
-            setWorkflowLLMModel(savedWorkflowLLMModel);
-        }
-        
-        // Fetch RSA public key
-        const fetchPublicKey = async () => {
+        // Load settings from persistent storage (survives reinstalls)
+        // Fall back to localStorage for backward compatibility
+        const loadSettings = async () => {
+            let persistentSettings: Record<string, any> = {};
             try {
-                const savedPublicKey = localStorage.getItem('rsaPublicKey');
-                if (savedPublicKey) {
-                    setRsaPublicKey(savedPublicKey);
-                } else {
-                    const publicKey = await fetchRsaPublicKey();
-                    setRsaPublicKey(publicKey);
-                    localStorage.setItem('rsaPublicKey', publicKey);
-                }
+                persistentSettings = await WorkflowChatAPI.getPersistentSettings();
             } catch (error) {
-                console.error('Failed to fetch RSA public key:', error);
+                console.warn('Failed to load persistent settings, falling back to localStorage:', error);
+            }
+
+            // Load OpenAI configuration
+            const savedOpenaiApiKey = persistentSettings.openai_api_key || localStorage.getItem('openaiApiKey');
+            const savedOpenaiBaseUrl = persistentSettings.openai_base_url || localStorage.getItem('openaiBaseUrl');
+            const savedWorkflowLLMApiKey = persistentSettings.workflow_llm_api_key || localStorage.getItem('workflowLLMApiKey');
+            const savedWorkflowLLMBaseUrl = persistentSettings.workflow_llm_base_url || localStorage.getItem('workflowLLMBaseUrl');
+            const savedWorkflowLLMModel = persistentSettings.workflow_llm_model || localStorage.getItem('workflowLLMModel');
+            
+            if (savedOpenaiApiKey) {
+                setOpenaiApiKey(savedOpenaiApiKey);
+            }
+            
+            if (savedOpenaiBaseUrl) {
+                setOpenaiBaseUrl(savedOpenaiBaseUrl);
+            }
+            if (savedWorkflowLLMApiKey) {
+                setWorkflowLLMApiKey(savedWorkflowLLMApiKey);
+            }
+            if (savedWorkflowLLMBaseUrl) {
+                setWorkflowLLMBaseUrl(savedWorkflowLLMBaseUrl);
+            }
+            if (savedWorkflowLLMModel) {
+                setWorkflowLLMModel(savedWorkflowLLMModel);
             }
         };
+
+        loadSettings();
+
+        // Load privacy settings
+        const savedTelemetryEnabled = localStorage.getItem('telemetryEnabled');
+        if (savedTelemetryEnabled === 'true') {
+            setTelemetryEnabled(true);
+        }
+
+        const savedSearchEnabled = localStorage.getItem('searchEnabled');
+        if (savedSearchEnabled === 'true') {
+            setSearchEnabled(true);
+        }
+
+        const savedSearchUrl = localStorage.getItem('searchUrl');
+        if (savedSearchUrl) {
+            setSearchUrl(savedSearchUrl);
+        }
+
+        const savedMcpServerUrl = localStorage.getItem('mcpServerUrl');
+        if (savedMcpServerUrl) {
+            setMcpServerUrl(savedMcpServerUrl);
+        }
+
+        // Load CivitAI setting
+        if (isCivitaiEnabled()) {
+            setCivitaiEnabledState(true);
+        }
         
-        fetchPublicKey();
+
     }, [initialApiKey]);
 
     const handleVerifyOpenAiKey = async () => {
@@ -141,14 +173,6 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
             setVerificationResult({
                 success: false,
                 message: 'Please enter an API key or use LMStudio URL (localhost:1234)'
-            });
-            return;
-        }
-        
-        if (!rsaPublicKey && !isLMStudio) {
-            setVerificationResult({
-                success: false,
-                message: 'RSA public key not available. Please try again later.'
             });
             return;
         }
@@ -269,7 +293,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
         }
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Save the main API key
         onSave(apiKey);
         
@@ -317,6 +341,48 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
         } else {
             localStorage.removeItem('workflowLLMApiKey');
         }
+
+        // Save to persistent storage (survives reinstalls)
+        try {
+            const persistentSettings: Record<string, any> = {};
+            if (openaiBaseUrl.trim()) {
+                persistentSettings.openai_base_url = openaiBaseUrl.trim();
+            }
+            if (openaiApiKey.trim()) {
+                persistentSettings.openai_api_key = openaiApiKey.trim();
+            }
+            if (workflowLLMBaseUrl.trim()) {
+                persistentSettings.workflow_llm_base_url = workflowLLMBaseUrl.trim();
+            }
+            if (workflowLLMApiKey.trim()) {
+                persistentSettings.workflow_llm_api_key = workflowLLMApiKey.trim();
+            }
+            if (workflowLLMModel.trim()) {
+                persistentSettings.workflow_llm_model = workflowLLMModel.trim();
+            }
+            if (Object.keys(persistentSettings).length > 0) {
+                await WorkflowChatAPI.savePersistentSettings(persistentSettings);
+            }
+        } catch (error) {
+            console.warn('Failed to save persistent settings:', error);
+        }
+
+        // Save privacy settings
+        localStorage.setItem('telemetryEnabled', telemetryEnabled ? 'true' : 'false');
+        localStorage.setItem('searchEnabled', searchEnabled ? 'true' : 'false');
+        if (searchUrl.trim()) {
+            localStorage.setItem('searchUrl', searchUrl.trim());
+        } else {
+            localStorage.removeItem('searchUrl');
+        }
+        if (mcpServerUrl.trim()) {
+            localStorage.setItem('mcpServerUrl', mcpServerUrl.trim());
+        } else {
+            localStorage.removeItem('mcpServerUrl');
+        }
+
+        // Save CivitAI setting
+        setCivitaiEnabled(civitaiEnabled);
         
         // Call configuration updated callback if OpenAI config has changed
         if ((hasOpenaiConfigChanged || hasWorkflowConfigChanged) && onConfigurationUpdated) {
@@ -395,7 +461,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
                         />
                     </div>
                     <StartLink className='flex justify-start items-end'>
-                        {apikeymodel_title}
+                        {modalTitle}
                         <svg viewBox="0 0 1024 1024" className="w-4 h-4" fill='currentColor'>
                             <path d="M498.894518 100.608396c-211.824383 0-409.482115 189.041494-409.482115 422.192601 0 186.567139 127.312594 344.783581 295.065226 400.602887 21.13025 3.916193 32.039717-9.17701 32.039717-20.307512 0-10.101055 1.176802-43.343157 1.019213-78.596056-117.448946 25.564235-141.394311-49.835012-141.394311-49.835012-19.225877-48.805566-46.503127-61.793368-46.503127-61.793368-38.293141-26.233478 3.13848-25.611308 3.13848-25.611308 42.361807 2.933819 64.779376 43.443441 64.779376 43.443441 37.669948 64.574714 98.842169 45.865607 122.912377 35.094286 3.815909-27.262924 14.764262-45.918819 26.823925-56.431244-93.796246-10.665921-192.323237-46.90017-192.323237-208.673623 0-46.071292 16.498766-83.747379 43.449581-113.332185-4.379751-10.665921-18.805298-53.544497 4.076852-111.732757 0 0 35.46063-11.336186 116.16265 43.296085 33.653471-9.330506 69.783343-14.022365 105.654318-14.174837 35.869952 0.153496 72.046896 4.844332 105.753579 14.174837 80.606853-54.631248 116.00813-43.296085 116.00813-43.296085 22.935362 58.18826 8.559956 101.120049 4.180206 111.732757 27.052123 29.584806 43.443441 67.260893 43.443441 113.332185 0 162.137751-98.798167 197.850114-192.799074 208.262254 15.151072 13.088086 28.65155 38.804794 28.65155 78.17957 0 56.484456-0.459464 101.94381-0.459464 115.854635 0 11.235902 7.573489 24.381293 29.014824 20.2543C825.753867 867.330798 933.822165 709.10924 933.822165 522.700713c0-233.155201-224.12657-422.192601-434.927647-422.192601L498.894518 100.608396z">
                             </path>
@@ -683,6 +749,105 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
                         </div>
                     </div>
                 </CollapsibleCard>
+                {/* Privacy & Data Configuration */}
+                <CollapsibleCard 
+                    title={<h3 className="text-sm text-gray-900 dark:text-white font-medium">Privacy & Data</h3>}
+                    className='mb-4'
+                >
+                    <div>
+                        {/* Telemetry Toggle */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Send usage analytics
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={telemetryEnabled}
+                                    onChange={(e) => setTelemetryEnabled(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                When enabled, sends anonymous usage data to improve the plugin. Disabled by default.
+                            </p>
+                        </div>
+
+                        {/* Web Search Configuration */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer mb-2">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Enable web search
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={searchEnabled}
+                                    onChange={(e) => setSearchEnabled(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <input
+                                type="text"
+                                value={searchUrl}
+                                onChange={(e) => setSearchUrl(e.target.value)}
+                                placeholder="Search URL (e.g., http://localhost:8080/search for SearXNG)"
+                                disabled={!searchEnabled}
+                                className={`w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg text-xs mb-1
+                                ${searchEnabled ? 'bg-gray-50 dark:bg-gray-700' : 'bg-gray-100 dark:bg-gray-800 opacity-50'}
+                                text-gray-900 dark:text-white
+                                placeholder-gray-500 dark:placeholder-gray-400
+                                focus:border-blue-500 dark:focus:border-blue-400 
+                                focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20
+                                focus:outline-none disabled:cursor-not-allowed`}
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Leave empty to disable web search. Compatible with SearXNG JSON API.
+                            </p>
+                        </div>
+
+                        {/* MCP Server Configuration */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                MCP Server URL (optional)
+                            </label>
+                            <input
+                                type="text"
+                                value={mcpServerUrl}
+                                onChange={(e) => setMcpServerUrl(e.target.value)}
+                                placeholder="Leave empty to disable MCP tools"
+                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg text-xs
+                                bg-gray-50 dark:bg-gray-700 
+                                text-gray-900 dark:text-white
+                                placeholder-gray-500 dark:placeholder-gray-400
+                                focus:border-blue-500 dark:focus:border-blue-400 
+                                focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20
+                                focus:outline-none"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                MCP server for workflow search and generation tools. Disabled by default for local-only operation.
+                            </p>
+                        </div>
+
+                        {/* CivitAI Access */}
+                        <div className="mb-4">
+                            <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
+                                    Allow CivitAI model lookups
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={civitaiEnabled}
+                                    onChange={(e) => setCivitaiEnabledState(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-400 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                When enabled, sends model file hashes to CivitAI for metadata and preview images. Disabled by default.
+                            </p>
+                        </div>
+                    </div>
+                </CollapsibleCard>
+
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3">
                     <button

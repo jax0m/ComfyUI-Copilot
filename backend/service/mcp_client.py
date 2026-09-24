@@ -6,8 +6,11 @@ LastEditTime: 2025-12-24 19:03:58
 FilePath: /comfyui_copilot/backend/service/mcp-client.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 '''
-from ..service.workflow_rewrite_tools import get_current_workflow
-from ..utils.globals import BACKEND_BASE_URL, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN
+from ..service.workflow_rewrite_tools import get_current_workflow, search_node_local, update_workflow, remove_node, get_node_info, get_node_infos
+from ..service.debug_agent import run_workflow, analyze_error_type, save_current_workflow
+from ..service.parameter_tools import find_matching_parameter_value, get_model_files, suggest_model_download, update_workflow_parameter
+from ..service.link_agent_tools import analyze_missing_connections, apply_connection_fixes
+from ..utils.globals import BACKEND_BASE_URL, SEARCH_URL, SEARCH_ENABLED, get_comfyui_copilot_api_key, DISABLE_WORKFLOW_GEN, TRACING_ENABLED, is_configured
 from .. import core
 import asyncio
 import os
@@ -117,6 +120,94 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
         messages = message_memory_optimize(session_id, messages)
         log.info(f"[MCP] Optimized messages count: {len(messages)}, messages: {messages}")
         
+        # Check if MCP server is configured
+        mcp_configured = is_configured(BACKEND_BASE_URL)
+        
+        if not mcp_configured:
+            # MCP server is not configured - use local tools only
+            log.info("MCP server not configured, using local tools only")
+            
+            # Create agent with local tools
+            from ..agent_factory import create_agent
+            
+            local_tools = [
+                get_current_workflow,
+                get_node_info,
+                get_node_infos,
+                search_node_local,
+                update_workflow,
+                remove_node,
+                run_workflow,
+                analyze_error_type,
+                save_current_workflow,
+                find_matching_parameter_value,
+                get_model_files,
+                suggest_model_download,
+                update_workflow_parameter,
+                analyze_missing_connections,
+                apply_connection_fixes,
+            ]
+            
+            agent = create_agent(
+                name="ComfyUI-Copilot (Local)",
+                instructions=f"""You are a powerful AI assistant for designing and modifying image processing workflows in ComfyUI.
+
+You have access to the following local tools:
+- get_current_workflow: Get the current workflow from the canvas
+- get_node_info / get_node_infos: Get detailed information about nodes
+- search_node_local: Search for available nodes by name or keywords
+- update_workflow: Update the current workflow
+- remove_node: Remove a node from the workflow
+- run_workflow: Validate and run the current workflow
+- analyze_error_type: Analyze workflow errors
+- save_current_workflow: Save the current workflow
+- find_matching_parameter_value: Find valid values for a parameter
+- get_model_files: List available model files
+- suggest_model_download: Suggest model downloads for missing models
+- update_workflow_parameter: Update a workflow parameter
+- analyze_missing_connections: Find missing node connections
+- apply_connection_fixes: Fix missing node connections
+
+Note: Without an MCP server, you cannot search for existing workflows or generate new workflows from scratch.
+Focus on modifying, debugging, and analyzing the current workflow.
+
+Respond in the language used by the user. Use markdown formatting with headings.
+""",
+                tools=local_tools,
+                config=config
+            )
+            
+            # Run the agent with local tools
+            from agents import Runner
+            from agents.tracing import set_tracing_disabled
+            from agents._config import set_default_openai_api
+            set_tracing_disabled(not TRACING_ENABLED)
+            set_default_openai_api("chat_completions")
+            
+            result = Runner.run_streamed(
+                agent,
+                input=messages,
+                max_turns=30,
+            )
+            
+            # Process the stream
+            current_text = ''
+            last_yield_length = 0
+            
+            async for event in result.stream_events():
+                if event.type == 'raw_event' and hasattr(event.data, 'choices'):
+                    delta = event.data.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        current_text += delta.content
+                        if len(current_text) > last_yield_length:
+                            # Yield as tuple (text, ext) to match MCP path format
+                            yield (current_text, {"data": None, "finished": False})
+                            last_yield_length = len(current_text)
+            
+            # Send final response
+            yield (current_text, {"data": None, "finished": True})
+            return
+        
         # Create MCP server instances
         mcp_server = MCPServerSse(
             params= {
@@ -128,9 +219,15 @@ async def comfyui_agent_invoke(messages: List[Dict[str, Any]], images: List[Imag
             client_session_timeout_seconds=300.0
         )
         
+        # Search server URL is configurable (e.g., SearXNG instance)
+        # Defaults to disabled for local-only operation
+        search_url = SEARCH_URL if SEARCH_ENABLED else ""
+        if not search_url:
+            search_url = "http://localhost:0/search-disabled"
+        
         bing_server = MCPServerSse(
             params= {
-                "url": "https://mcp.api-inference.modelscope.net/8c9fe550938e4f/sse",
+                "url": search_url,
                 "timeout": 300.0,
                 "headers": {"X-Session-Id": session_id, "Authorization": f"Bearer {get_comfyui_copilot_api_key()}"}
             },
@@ -309,7 +406,8 @@ You must adhere to the following constraints to complete the task:
 
             from agents import Agent, Runner, set_trace_processors, set_tracing_disabled, set_default_openai_api
             # from langsmith.wrappers import OpenAIAgentsTracingProcessor
-            set_tracing_disabled(False)
+            # Tracing is disabled by default for privacy. Enable via CC_TRACING_ENABLED=true
+            set_tracing_disabled(not TRACING_ENABLED)
             set_default_openai_api("chat_completions")
             # set_trace_processors([OpenAIAgentsTracingProcessor()])
 

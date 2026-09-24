@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import identity
 
-from ..utils.globals import set_language, apply_llm_env_defaults
+from ..utils.globals import set_language, apply_llm_env_defaults, MODELSCOPE_ENABLED
 from ..utils.auth_utils import extract_and_store_api_key
 import server
 from aiohttp import web
@@ -292,7 +292,9 @@ async def invoke_chat(request):
         has_sent_response = False
         previous_text_length = 0
         
-        log.info(f"config: {config}")
+        # Log config with API keys redacted
+        config_log = {k: ('***REDACTED***' if 'key' in k.lower() and v else v) for k, v in config.items()}
+        log.info(f"config: {config_log}")
         
         # Pass messages in OpenAI format (images are now included in messages)
         # Config is now available through request context
@@ -532,7 +534,9 @@ async def invoke_debug(request):
     # 设置请求上下文 - 为debug请求建立context隔离
     set_request_context(session_id, None, config)
     
-    log.info(f"Debug agent config: {config}")
+    # Log config with API keys redacted
+    config_log = {k: ('***REDACTED***' if 'key' in k.lower() and v else v) for k, v in config.items()}
+    log.info(f"Debug agent config: {config_log}")
     log.info(f"Session ID: {session_id}")
     log.info(f"Workflow nodes: {list(workflow_data.keys()) if workflow_data else 'None'}")
 
@@ -1023,6 +1027,13 @@ async def model_suggests(request):
             return web.json_response({
                 "success": False,
                 "message": "Missing required parameter: keyword"
+            })
+
+        # ModelScope access is disabled by default for privacy
+        if not MODELSCOPE_ENABLED:
+            return web.json_response({
+                "success": False,
+                "message": "ModelScope search is disabled. Enable via MODELSCOPE_ENABLED=true environment variable."
             })
 
         # 创建ModelScope网关实例

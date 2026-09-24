@@ -4,6 +4,7 @@
 import { SearchHit } from "../model-manager/civitSearchTypes";
 import { isCivitModel } from "../model-manager/install-models/util/modelTypes";
 import { CivitiModel } from "../model-manager/types";
+import { isCivitaiEnabled } from "./civitUtils";
 
 interface ImageLike {
   nsfw?: "None" | "Soft" | "Mature" | "X";
@@ -34,6 +35,10 @@ export function findSfwImageFromModel(
 ): string | undefined {
   if (!model) {
     return;
+  }
+  // CivitAI image CDN access is disabled by default for privacy
+  if (!isCivitaiEnabled()) {
+    return undefined;
   }
   if (model.images) {
     const imageurl = `https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/${findSfwImage(model.images, fallback)?.url}/width=${IMAGE_SIZE}/`;

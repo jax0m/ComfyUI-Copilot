@@ -22,7 +22,8 @@ except Exception:
         "Alternatively, keep both by setting COMFYUI_COPILOT_PREFER_OPENAI_AGENTS=1 so this plugin prefers openai-agents."
     )
 from dotenv import dotenv_values
-from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url
+from .utils.globals import LLM_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_BASE_URL, get_comfyui_copilot_api_key, is_lmstudio_url, is_configured, TRACING_ENABLED
+from .utils.settings_storage import get_setting
 from openai import AsyncOpenAI
 
 
@@ -47,7 +48,8 @@ import asyncio
 # load_env_config()
 
 set_default_openai_api("chat_completions")
-set_tracing_disabled(False)
+# Tracing is disabled by default for privacy. Enable via CC_TRACING_ENABLED=true
+set_tracing_disabled(not TRACING_ENABLED)
 
 
 def create_agent(**kwargs) -> Agent:
@@ -60,14 +62,33 @@ def create_agent(**kwargs) -> Agent:
         default_headers["X-Session-ID"] = session_id
 
     # Determine base URL and API key
+    # Resolution order: request config > persistent settings > environment variables > default
     base_url = LLM_DEFAULT_BASE_URL
     api_key = get_comfyui_copilot_api_key() or ""
 
+    # Check persistent settings
+    persistent_base_url = get_setting("openai_base_url")
+    persistent_api_key = get_setting("openai_api_key")
+    
+    if persistent_base_url and is_configured(persistent_base_url):
+        base_url = persistent_base_url
+    if persistent_api_key:
+        api_key = persistent_api_key
+
+    # Request config takes precedence over persistent settings
     if config:
         if config.get("openai_base_url") and config.get("openai_base_url") != "":
             base_url = config.get("openai_base_url")
         if config.get("openai_api_key") and config.get("openai_api_key") != "":
             api_key = config.get("openai_api_key")
+
+    # Check if the LLM is configured
+    if not is_configured(base_url):
+        raise ValueError(
+            "LLM is not configured. Please set the OpenAI Base URL in the plugin settings "
+            "(click the gear icon in the chat panel) or set the CC_OPENAI_BASE_URL environment variable. "
+            "For local models, use http://localhost:1234/v1 (LMStudio default)."
+        )
 
     # Check if this is LMStudio and adjust API key handling
     is_lmstudio = is_lmstudio_url(base_url)
