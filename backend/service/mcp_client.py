@@ -181,6 +181,7 @@ Respond in the language used by the user. Use markdown formatting with headings.
             from agents import Runner
             from agents.tracing import set_tracing_disabled
             from agents._config import set_default_openai_api
+            from agents.items import ResponseTextDeltaEvent
             set_tracing_disabled(not TRACING_ENABLED)
             set_default_openai_api("chat_completions")
             
@@ -190,15 +191,15 @@ Respond in the language used by the user. Use markdown formatting with headings.
                 max_turns=30,
             )
             
-            # Process the stream
+            # Process the stream (matching MCP path event handling)
             current_text = ''
             last_yield_length = 0
             
             async for event in result.stream_events():
-                if event.type == 'raw_event' and hasattr(event.data, 'choices'):
-                    delta = event.data.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
-                        current_text += delta.content
+                if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
+                    delta_text = event.data.delta
+                    if delta_text:
+                        current_text += delta_text
                         if len(current_text) > last_yield_length:
                             # Yield as tuple (text, ext) to match MCP path format
                             yield (current_text, {"data": None, "finished": False})
