@@ -200,19 +200,12 @@ Respond in the language used by the user. Use markdown formatting with headings.
                     if hasattr(delta, 'content') and delta.content:
                         current_text += delta.content
                         if len(current_text) > last_yield_length:
-                            yield {
-                                "text": current_text,
-                                "ext": None,
-                                "finished": False
-                            }
+                            # Yield as tuple (text, ext) to match MCP path format
+                            yield (current_text, {"data": None, "finished": False})
                             last_yield_length = len(current_text)
             
             # Send final response
-            yield {
-                "text": current_text,
-                "ext": None,
-                "finished": True
-            }
+            yield (current_text, {"data": None, "finished": True})
             return
         
         # Create MCP server instances
