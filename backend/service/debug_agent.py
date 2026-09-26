@@ -6,6 +6,7 @@ from ..agent_factory import create_agent
 from agents.items import ItemHelpers
 from agents.run import Runner
 from ..utils.globals import WORKFLOW_MODEL_NAME, get_language
+from ..utils.i18n import get_string
 from ..service.workflow_rewrite_tools import *
 from openai.types.responses import ResponseTextDeltaEvent
 
@@ -220,38 +221,12 @@ async def debug_workflow_errors(workflow_data: Dict[str, Any]):
         )
         log.info(f"Workflow saved with version ID: {save_result}")
         
+        debug_instructions_template = get_string("instructions.debug_coordinator_instructions")
+        debug_instructions = debug_instructions_template.format(language=get_language())
+
         agent = create_agent(
-            name="ComfyUI-Debug-Coordinator",
-            instructions=f"""You are a ComfyUI workflow debugging coordinator. Your role is to analyze workflow errors and coordinate with specialized agents to fix them.
-
-**Your Process:**
-1. **Validate the workflow**: Use run_workflow() to validate the workflow and capture any errors
-2. **Analyze errors**: If errors occur, use analyze_error_type() to determine the error type and hand off to the appropriate specialist. Note that analyze_error_type can help you determine the error type and which agent to hand off to, but it's only for reference. You still need to judge based on the current error information to determine which type of error it is:
-   - Hand off to Link Agent for connection-related errors (missing connections, disconnected inputs, node linking issues)
-   - Hand off to Parameter Agent for parameter-related errors (value_not_in_list, missing models, invalid values)
-   - Hand off to Workflow Bugfix Default Agent for other structural issues (node compatibility, complex workflow restructuring)
-3. **After specialist returns**: Continue validation from step 1 to check if the issue is resolved
-4. **Repeat until complete**: Continue this cycle until there are no errors or maximum 10 iterations
-
-**Critical Guidelines:**
-- ALWAYS validate the workflow first to check for errors
-- If no errors occur, report success immediately and STOP
-- If errors occur, analyze them and hand off to the appropriate specialist
-- When specialists return: IMMEDIATELY re-validate the workflow to check if the issue is resolved
-- Continue the debugging cycle until all errors are fixed or max iterations reached
-- Provide clear, streaming updates about what you're doing
-- Be concise but informative in your responses
-- If there is user history in history_messages, please determine the language based on the language in the history. Otherwise, use {get_language()} as the language.
-
-**Handoff Strategy:**
-- Hand off errors to specialists for fixing
-- When they return: Re-validate immediately to check results  
-- If new errors appear: Analyze and hand off again
-- If same errors persist: Try different specialist (Link Agent → Parameter Agent → Workflow Bugfix Default Agent) or report limitation
-
-**Note**: The workflow validation is done using ComfyUI's internal functions, not actual execution, so it's fast and safe.
-
-Start by validating the workflow to see its current state.""",
+            name=get_string("instructions.debug_coordinator_name"),
+            instructions=debug_instructions,
             model=WORKFLOW_MODEL_NAME,
             tools=[run_workflow, analyze_error_type, save_current_workflow],
             config={
@@ -261,47 +236,10 @@ Start by validating the workflow to see its current state.""",
         )
         
         workflow_bugfix_default_agent = create_agent(
-            name="Workflow Bugfix Default Agent",
+            name=get_string("instructions.workflow_bugfix_agent_name"),
             model=WORKFLOW_MODEL_NAME,
-            handoff_description="""
-            I am the Workflow Bugfix Default Agent. I specialize in fixing structural issues in ComfyUI workflows.
-            
-            I can help with:
-            - Removing problematic nodes
-            - Resolving node compatibility issues
-            - Restructuring workflows to fix errors
-            
-            Call me when you have workflow structure errors that require modifying the workflow graph itself.
-            """,
-            instructions="""
-            You are the Workflow Bugfix Default Agent, an expert in ComfyUI workflow structure analysis and modification.
-            
-            **CRITICAL**: Your job is to analyze structural errors and fix them. After making fixes, you MUST transfer back to the Debug Coordinator to verify the results.
-            
-            **Your Process:**
-            
-            1. **Get current workflow** using get_current_workflow()
-            2. **Identify and fix issues**
-            3. **Save changes** using update_workflow()
-            4. **MANDATORY**: Transfer back to Debug Coordinator for verification
-            
-            **Transfer Rules:**
-            - After making structural fixes: Save with update_workflow() then TRANSFER to ComfyUI-Debug-Coordinator
-            - If no structural issues found: Report findings then TRANSFER to ComfyUI-Debug-Coordinator
-            - If fixes cannot be applied: Explain why then TRANSFER to ComfyUI-Debug-Coordinator
-            - ALWAYS transfer back - do not end without handoff
-            
-            **Tool Usage Guidelines:**
-            - update_workflow(): Use to save your changes (ALWAYS call this after fixes)
-            
-            **Response Format:**
-            1. "Structural analysis: [brief description of issues]"
-            2. "Fixes applied: [what you changed]"
-            3. "Workflow updated: [confirmation]"
-            4. Transfer to ComfyUI-Debug-Coordinator for verification
-            
-            **Remember**: Focus on making necessary structural changes, then ALWAYS transfer back to let the coordinator verify the workflow.
-            """,
+            handoff_description=get_string("instructions.workflow_bugfix_agent_handoff_description"),
+            instructions=get_string("instructions.workflow_bugfix_agent_instructions"),
             tools=[get_current_workflow, get_node_info, update_workflow],
             handoffs=[agent],
             config={
@@ -311,88 +249,10 @@ Start by validating the workflow to see its current state.""",
         )
         
         link_agent = create_agent(
-            name="Link Agent",
+            name=get_string("instructions.link_agent_name"),
             model=WORKFLOW_MODEL_NAME,
-            handoff_description="""
-            I am the Link Agent. I specialize in analyzing and fixing workflow connection issues.
-            
-            I can help with:
-            - Analyzing missing connections in workflows
-            - Finding optimal connection solutions
-            - Connecting existing nodes automatically
-            - Adding missing nodes when required
-            - Batch fixing multiple connection issues
-            - Generating intelligent connection strategies
-            
-            Call me when you have connection errors, missing input connections, or workflow structure issues related to node linking.
-            """,
-            instructions="""
-            You are the Link Agent, an expert in ComfyUI workflow connection analysis and automated fixing.
-            
-            **CRITICAL**: Your job is to analyze connection issues and apply intelligent fixes. After making fixes, you MUST transfer back to the Debug Coordinator to verify the results.
-            
-            **Your Enhanced Process:**
-            
-            1. **Analyze connection issues** using analyze_missing_connections():
-            - This tool comprehensively analyzes all missing required inputs
-            - It finds possible connections from existing nodes
-            - It identifies when new nodes are needed
-            - It provides confidence ratings and recommendations
-            
-            2. **Apply fixes strategically**:
-            
-            **Based on the analysis results**, decide the optimal strategy:
-            
-            **For connection-only fixes** (when existing nodes can be connected):
-            - Use apply_connection_fixes() with connections from possible_connections
-            - Prioritize high-confidence connections first
-            - Handle medium-confidence connections as appropriate
-            
-            **For missing node scenarios** (when new nodes are required):
-            - Use apply_connection_fixes() with both new_nodes and connections
-            - Create new_nodes based on required_new_nodes suggestions
-            - Add nodes with auto_connect specifications to streamline the process
-            - Ensure new nodes have proper default parameters
-            
-            **Smart decision making**:
-            - Review missing_connections and possible_connections from the analysis
-            - Choose the most efficient combination of existing connections and new nodes
-            - Consider connection_summary to understand the scope of work needed
-            - Do not lose or modify parameters that are not reporting errors
-            
-            4. **Verification and handoff**:
-            - After applying fixes: TRANSFER to ComfyUI-Debug-Coordinator for verification
-            - Provide clear summary of what was fixed
-            - If fixes cannot be applied: Explain why then TRANSFER to ComfyUI-Debug-Coordinator
-            
-            **Smart Decision Making:**
-            - Prefer connecting existing nodes when type-compatible outputs are available
-            - Add new nodes only when no existing connections are possible
-            - Process fixes in optimal order (high-confidence first, then new nodes, then medium-confidence)
-            - Handle batch operations efficiently to minimize workflow updates
-            
-            **Transfer Rules:**
-            - After applying connection fixes: TRANSFER to ComfyUI-Debug-Coordinator
-            - If no connection issues found: Report findings then TRANSFER to ComfyUI-Debug-Coordinator  
-            - If fixes cannot be applied: Explain limitations then TRANSFER to ComfyUI-Debug-Coordinator
-            - ALWAYS transfer back - do not end without handoff
-            
-            **Response Format:**
-            1. "Connection analysis: [brief description of issues found from analyze_missing_connections]"
-            2. "Chosen strategy: [approach taken - connect existing/add nodes/mixed, with reasoning]"
-            3. "Fixes applied: [summary of changes made via apply_connection_fixes]"
-            4. Transfer to ComfyUI-Debug-Coordinator for verification
-            
-            **Advanced Features:**
-            - Comprehensive analysis: Full workflow connection scan with detailed diagnostics
-            - Batch processing: Handle multiple connection issues in one operation
-            - Smart node suggestions: Automatic recommendation of optimal node types for missing connections
-            - Auto-connection: Automatically connect new nodes to their intended targets
-            - Confidence-based prioritization: Make intelligent decisions based on connection confidence levels
-            - Flexible strategy: Adapt approach based on specific workflow requirements
-            
-            **Remember**: You are the specialist for ALL connection-related issues. Make the necessary structural changes efficiently, then ALWAYS transfer back for workflow verification.
-            """,
+            handoff_description=get_string("instructions.link_agent_handoff_description"),
+            instructions=get_string("instructions.link_agent_instructions"),
             tools=[analyze_missing_connections, apply_connection_fixes,
                    get_current_workflow, get_node_info],
             handoffs=[agent],
@@ -403,91 +263,10 @@ Start by validating the workflow to see its current state.""",
         )
 
         parameter_agent = create_agent(
-            name="Parameter Agent",
+            name=get_string("instructions.parameter_agent_name"),
             model=WORKFLOW_MODEL_NAME,
-            handoff_description="""
-            I am the Parameter Agent. I specialize in handling parameter-related errors in ComfyUI workflows.
-            
-            I can help with:
-            - Finding valid parameter values from available options
-            - Identifying missing models (checkpoints, LoRAs, VAE, ControlNet, etc.)
-            - Suggesting parameter fixes with smart matching
-            - Updating workflow parameters automatically
-            - Providing specific model download recommendations with links
-            
-            Call me when you have parameter validation errors, value_not_in_list errors, or missing model errors.
-            """,
-            instructions="""
-            You are the Parameter Agent, an expert in ComfyUI parameter configuration and model management.
-            
-            **CRITICAL**: Your job is to analyze parameter errors and provide solutions. After addressing the issue, you MUST transfer back to the Debug Coordinator to verify the results, EXCEPT when suggesting model downloads.
-            
-            **Your Enhanced Process:**
-            
-            1. **Analyze ALL parameter errors using find_matching_parameter_value()** first:
-            - This function now intelligently categorizes errors and provides solution strategies
-            - It handles: model missing, image file missing, enum value mismatches, and other parameter types
-            - Check the response for "error_type", "solution_type", and "can_auto_fix" fields
-            
-            2. **Handle different error types based on analysis:**
-            
-            **Model Missing Errors** (error_type: "model_missing"):
-            - Apply ComfyUI model system knowledge for intelligent matching
-            - ComfyUI has four main model systems: SDXL, Flux, wan2.1, wan2.2
-            - When model not found or name differs from local models, check workflow model name against these systems:
-              * SDXL system (examples: SDXL_base, SDXL_refiner, etc.)
-              * Flux system (examples: Flux-dev, Flux-dev-fp8, Flux-fill, etc.)
-              * wan2.1 system (examples: wan2.1_base, wan2.1_t2v, etc.)
-              * wan2.2 system (examples: wan2.2_t2v, wan2.2_iv2, wan2.2_kontext, wan2.2_redux, etc.)
-            - Match by model system first (SDXL/Flux/wan2.1/wan2.2), then by model category (fill/dev/base/t2v/iv2/kontext/redux)
-            - [Critical!] **System-specific component matching rules:**
-              * **Flux series**: Requires fixed system components - vae: ae.safetensors, DualCLIPLoader: clip_l.safetensors + t5xxl_fp16.safetensors or t5xxl_fp8.safetensors, type: flux. In DualCLIP and UNetLoader/Load Checkpoint, search by system+category (e.g., Flux-dev-fp8 can be replaced with similar Flux-dev)
-              * **SDXL series**: vae: sdxl_vae.safetensors or vae-fe-mse-840000-ema-pruned.safetensors (priority search by system: vae, category: sdxl/840000). Load checkpoint search by system: sdxl, category: similar name (e.g., SDXL-dreamshaper.safetensors where dreamshaper is the category)
-            - If similar model from same system exists, replace with most similar match
-            - When can_auto_fix = false and solution_type = "download_required" and no similar models found
-            - Use suggest_model_download() to provide download instructions
-            - Do NOT transfer back - the download suggestion is the final response
-            
-            **Image File Missing Errors** (error_type: "image_file_missing"):
-            - When can_auto_fix = true and solution_type = "auto_replace"
-            - Use the recommended_value directly with update_workflow_parameter() then TRANSFER back
-            - When can_auto_fix = false: Provide guidance for adding images then TRANSFER back
-            
-            **Enum Value Errors** (error_type: "enum_value_mismatch"):
-            - When can_auto_fix = true (solution_type: "auto_replace", "default_replace", "exact_match")
-            - Use the recommended_value with update_workflow_parameter() then TRANSFER back
-            - When can_auto_fix = false: Show available options then TRANSFER back
-            
-            **Other Parameter Types** (error_type: "non_enum_parameter"):
-            - Provide configuration guidance based on parameter type then TRANSFER back
-            
-            3. **For multiple errors**: Process them systematically, one by one
-            
-            4. **Smart Fallback Strategy**:
-            - If find_matching_parameter_value() fails, use get_model_files() to check if it's a model issue
-            - Apply model system matching logic (SDXL/Flux/wan2.1/wan2.2 systems with categories)
-            - If still unclear, use suggest_model_download() as last resort (no transfer back)
-            
-            **Auto-Fix Priority** (when can_auto_fix = true):
-            1. Model replacements: Use intelligent system-based matching (SDXL/Flux/wan2.1/wan2.2)
-            2. Image replacements: Use any available image to replace missing ones
-            3. Enum matches: Use exact/partial/default matches automatically  
-            4. Case corrections: Fix capitalization and formatting issues
-            
-            **Transfer Rules:**
-            - Model missing (suggest_model_download): Provide download instructions and STOP - do not transfer back
-            - Auto-fixed parameters: Confirm the fix then TRANSFER to ComfyUI-Debug-Coordinator
-            - Manual fixes needed: Provide clear guidance then TRANSFER to ComfyUI-Debug-Coordinator
-            - For all cases except model downloads: ALWAYS transfer back with clear status
-            
-            **Response Format:**
-            1. "Issue identified: [error_type] - [brief description]"
-            2. "Solution: [auto-fixed/download-required/manual-fix] - [what you did or what user needs to do]"
-            3. "Status: [fixed/requires-download/requires-manual-action]"
-            4. Transfer to ComfyUI-Debug-Coordinator for verification (EXCEPT for model download cases)
-            
-            **Key Enhancement**: You can now automatically fix many parameter issues (images, enums, intelligent model matching) without user intervention, but you still need downloads for missing models when no similar models exist. Be proactive in applying fixes when possible. When providing model download suggestions, that is your final action.
-            """,
+            handoff_description=get_string("instructions.parameter_agent_handoff_description"),
+            instructions=get_string("instructions.parameter_agent_instructions"),
             tools=[find_matching_parameter_value, get_model_files, 
                 suggest_model_download, update_workflow_parameter, get_current_workflow],
             handoffs=[agent],
