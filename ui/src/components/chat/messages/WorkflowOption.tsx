@@ -4,7 +4,7 @@ import { WorkflowChatAPI } from "../../../apis/workflowChatApi";
 import { generateUUID } from "../../../utils/uuid";
 import { useEffect, useState } from "react";
 import { Tooltip } from 'antd';
-import { ACCEPT_EVENT } from "../../ui/StartPopView";
+
 interface WorkflowOptionProps {
     content: string;
     name?: string;
@@ -64,11 +64,7 @@ export function WorkflowOption({ content, name = 'Assistant', avatar, latestInpu
             }
         });
 
-        // 发送accept事件，每日首次accept会弹出star框
-        window.dispatchEvent(new CustomEvent(ACCEPT_EVENT, {
 
-        }));
-        
         try {
             // 获取优化后的工作流
             const optimizedResult = await WorkflowChatAPI.getOptimizedWorkflow(

@@ -23,7 +23,7 @@ import Modal from '../ui/Modal';
 import { debounce } from 'lodash';
 import useCountDown from '../../hooks/useCountDown';
 import LoadingIcon from '../ui/Loading-icon';
-import useLanguage from '../../hooks/useLanguage';
+
 import StartLink from '../ui/StartLink';
 import TabButton from '../ui/TabButton';
 import { WorkflowChatAPI } from '../../apis/workflowChatApi';
@@ -78,7 +78,7 @@ export function ApiKeyModal({ isOpen, onClose, onSave, initialApiKey = '', onCon
     const [activeTab, setActiveTab] = useState<string>(TAB_LIST[0]);
     const [tabStrMap, setTabStrMap] = useState<Record<string, Record<string, string>> | null>(null);
 
-    const { apikeymodel_title } = useLanguage();
+
     // Override the pandering title with a functional one
     const modalTitle = 'API Configuration';
 
